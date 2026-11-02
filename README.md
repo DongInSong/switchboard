@@ -52,7 +52,7 @@ Plain terminals can't be typed into from outside (TIOCSTI is off on modern kerne
 
 ## Requirements
 
-- Linux or Windows with WSL2. macOS mostly works; the dev-server signal uses `ss` and `/proc` and is Linux-only for now.
+- Linux or Windows with WSL2. macOS is not supported yet: session and process checks read Linux `/proc` (a `ps`/`lsof` port is planned), so sessions show as view only there.
 - Node.js 24+, pnpm (via corepack)
 - tmux 3.2+
 - Claude Code with `claude agents --json` (tested with 2.1.316)
@@ -133,6 +133,7 @@ Precedence: environment variables > `~/.config/switchboard/config.json` > defaul
 ## Limits
 
 - React 19 line numbers are approximate (`:~12`); source maps are planned.
+- macOS is not supported yet (process checks use Linux `/proc`).
 - Delivery reads Claude Code's input box from the tmux screen; a UI change in Claude Code may need an update here.
 - Captures of sent requests are kept 14 days after the last activity, unsent ones 24 hours; cleanup is automatic (`switchboard clean --dry-run` to preview).
 

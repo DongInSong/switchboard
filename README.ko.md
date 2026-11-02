@@ -74,6 +74,8 @@ scripts/switchboard config     # 설정 보기 (값과 출처), config set <키>
 
 설정은 `~/.config/switchboard/config.json`(환경변수가 우선). 확장 쪽(데몬 주소, 자동 복원 사이트, 단축키)은 사이드 패널 `3 설정`.
 
+> 지원: Linux, Windows + WSL2. 맥(macOS)은 아직 안 됨 — 세션·프로세스 확인이 리눅스 `/proc`를 읽어서 맥에서는 세션이 보기 전용으로 나온다(`ps`/`lsof`로 옮길 예정).
+
 ## 릴리즈로 설치
 
 [Releases](https://github.com/DongInSong/switchboard/releases)에서 `switchboard.mjs`(데몬·CLI 단일 파일, Node 24+)와 확장 zip을 받는다. zip을 풀어 `edge://extensions` → 개발자 모드 → 압축 풀린 확장 로드.
