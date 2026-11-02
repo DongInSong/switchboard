@@ -7,6 +7,8 @@ export type ProcStat = {
   ppid: number;
   /** 22번째 필드(starttime). 부팅 후 클록 틱 단위 문자열. */
   startTime: string;
+  /** ps 경로(macOS 등): 시작 시각(ms). */
+  startedMs?: number;
 };
 
 /**
@@ -42,7 +44,9 @@ export async function readProcStat(pid: number): Promise<ProcStat | null> {
 export function parsePsLine(line: string): ProcStat | null {
   const m = /^\s*(\d+)\s+(\d+)\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2}:\d{2}\s+\d{4})\s+(.*)$/.exec(line);
   if (!m) return null;
-  return { pid: Number(m[1]), ppid: Number(m[2]), startTime: m[3]!.replace(/\s+/g, " "), comm: m[4]!.trim() };
+  const startTime = m[3]!.replace(/\s+/g, " ");
+  const startedMs = Date.parse(startTime);
+  return { pid: Number(m[1]), ppid: Number(m[2]), startTime, comm: m[4]!.trim(), ...(Number.isFinite(startedMs) ? { startedMs } : {}) };
 }
 
 /** ps 한 번으로 전체 프로세스 표를 만들고 잠깐(기본 2초) 재사용한다. 계보를 따라가며 pid마다 ps를 부르지 않게. */

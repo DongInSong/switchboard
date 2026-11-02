@@ -17,6 +17,15 @@ mkdirSync(dirname(transcript), { recursive: true });
 mkdirSync(join(claudeDir, "sessions"), { recursive: true });
 
 let status = "idle";
+/** Linux: /proc/self/stat 22번째 필드(Claude Code가 남기는 procStart와 같은 형식). 다른 OS는 생략. */
+function procStart() {
+  try {
+    const s = readFileSync("/proc/self/stat", "utf8");
+    return { procStart: s.slice(s.lastIndexOf(")") + 2).trim().split(/\s+/)[19] };
+  } catch {
+    return {};
+  }
+}
 let dialog = false;
 let input = "";
 let inPaste = false;
@@ -33,8 +42,8 @@ function publish() {
   } catch {}
   writeFileSync(`${agents}.${process.pid}.tmp`, JSON.stringify([entry, ...list]));
   renameSync(`${agents}.${process.pid}.tmp`, agents);
-  // 레지스트리의 디렉터리 감시를 깨운다
-  writeFileSync(join(claudeDir, "sessions", `${process.pid}.json`), JSON.stringify({ pid: process.pid, status, updatedAt: Date.now() }));
+  // Claude Code처럼 세션 레지스트리 파일을 남긴다(데몬은 평소 이 파일을 읽는다)
+  writeFileSync(join(claudeDir, "sessions", `${process.pid}.json`), JSON.stringify({ pid: process.pid, kind: "interactive", entrypoint: "cli", cwd, sessionId, name, status, startedAt, updatedAt: Date.now(), ...procStart() }));
 }
 
 function render() {

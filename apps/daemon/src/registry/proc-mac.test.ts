@@ -13,7 +13,13 @@ const PS = [
 
 describe("macOS 프로세스·포트", () => {
   it("ps 한 줄: pid, ppid, 시작 시각(재사용 판별), 명령", () => {
-    expect(parsePsLine(PS.split("\n")[3]!)).toEqual({ pid: 901, ppid: 900, startTime: "Mon Nov 2 10:12:50 2026", comm: "/Users/me/.local/bin/claude --resume" });
+    expect(parsePsLine(PS.split("\n")[3]!)).toEqual({
+      pid: 901,
+      ppid: 900,
+      startTime: "Mon Nov 2 10:12:50 2026",
+      startedMs: new Date(2026, 10, 2, 10, 12, 50).getTime(),
+      comm: "/Users/me/.local/bin/claude --resume",
+    });
     expect(parsePsLine("bad line")).toBeNull();
   });
 

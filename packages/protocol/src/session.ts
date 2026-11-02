@@ -83,5 +83,7 @@ export const SessionSnapshot = z.object({
   takenAt: z.number(),
   tmuxRunning: z.boolean(),
   warnings: z.array(z.string()),
+  /** 세션 목록 출처: Claude Code 레지스트리 파일(평소) / `claude agents --json`(파일을 못 믿을 때). */
+  source: z.enum(["registry", "agents"]).optional(),
 });
 export type SessionSnapshot = z.infer<typeof SessionSnapshot>;

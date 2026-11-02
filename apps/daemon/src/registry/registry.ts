@@ -9,13 +9,14 @@ import {
   type TmuxLocation,
 } from "@switchboard/protocol";
 import { listAgents, listAgentsFromFile, type AgentsResult, type RawAgent } from "./agents.ts";
+import { AgentSource, listAgentsFromRegistry } from "./source.ts";
 import { cachedGitInfo } from "./git.ts";
 import { PROC_START_COMPARABLE, ancestry, readStat, type ProcStat } from "./proc.ts";
 import { readRegistryFile, sessionsDir, type RegistryFileInfo } from "./registryFile.ts";
 import { listPanes, type Pane, type PanesResult } from "./tmux.ts";
 
 export type RegistryDeps = {
-  listAgents(): Promise<AgentsResult>;
+  listAgents(): Promise<AgentsResult & { source?: "registry" | "agents" }>;
   listPanes(): Promise<PanesResult>;
   readStat(pid: number): Promise<ProcStat | null>;
   readRegistryFile(pid: number): Promise<RegistryFileInfo | null>;
@@ -30,8 +31,13 @@ export type RegistryDeps = {
 export function defaultDeps(bins: { claudeBin?: string; tmuxBin?: string } = {}, env: NodeJS.ProcessEnv = process.env): RegistryDeps {
   const agentsFile = env.SWITCHBOARD_AGENTS_FILE;
   const socket = env.SWITCHBOARD_TMUX_SOCKET;
+  // 평소엔 레지스트리 파일, 공식 명령은 5분마다(source.ts)
+  const source = new AgentSource({
+    official: () => (agentsFile ? listAgentsFromFile(agentsFile) : listAgents(bins.claudeBin)),
+    files: () => listAgentsFromRegistry(sessionsDir(), readStat, PROC_START_COMPARABLE),
+  });
   return {
-    listAgents: () => (agentsFile ? listAgentsFromFile(agentsFile) : listAgents(bins.claudeBin)),
+    listAgents: () => source.list(),
     listPanes: () => listPanes(bins.tmuxBin ?? "tmux", socket),
     readStat,
     readRegistryFile: (pid) => readRegistryFile(pid),
@@ -154,7 +160,7 @@ export async function buildSnapshot(deps: RegistryDeps): Promise<SessionSnapshot
   if (panesRes.error) warnings.push(`tmux: ${panesRes.error}`);
   const sessions = await Promise.all(agentsRes.agents.map((a) => toSession(a, panesRes.panes, deps)));
   sessions.sort(compareSessions);
-  return { sessions, takenAt: Date.now(), tmuxRunning: panesRes.serverRunning, warnings };
+  return { sessions, takenAt: Date.now(), tmuxRunning: panesRes.serverRunning, warnings, ...(agentsRes.source ? { source: agentsRes.source } : {}) };
 }
 
 /** 변경 비교용 지문. 시각(takenAt)처럼 매번 바뀌는 값은 뺀다. */

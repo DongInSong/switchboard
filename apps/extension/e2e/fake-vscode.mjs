@@ -14,6 +14,14 @@ const transcript = join(claudeDir, "projects", cwd.replace(/[^a-zA-Z0-9]/g, "-")
 mkdirSync(dirname(transcript), { recursive: true });
 mkdirSync(join(claudeDir, "sessions"), { recursive: true });
 let status = "idle";
+function procStart() {
+  try {
+    const s = readFileSync("/proc/self/stat", "utf8");
+    return { procStart: s.slice(s.lastIndexOf(")") + 2).trim().split(/\s+/)[19] };
+  } catch {
+    return {};
+  }
+}
 let lastSeq = 0;
 
 function publish() {
@@ -24,7 +32,7 @@ function publish() {
   } catch {}
   writeFileSync(`${agents}.${process.pid}.tmp`, JSON.stringify([...list, entry]));
   renameSync(`${agents}.${process.pid}.tmp`, agents);
-  writeFileSync(join(claudeDir, "sessions", `${process.pid}.json`), JSON.stringify({ pid: process.pid, entrypoint: "claude-vscode", kind: "interactive", status, updatedAt: Date.now() }));
+  writeFileSync(join(claudeDir, "sessions", `${process.pid}.json`), JSON.stringify({ pid: process.pid, entrypoint: "claude-vscode", kind: "interactive", cwd, sessionId, name, status, startedAt, updatedAt: Date.now(), ...procStart() }));
 }
 
 const line = (o) => appendFileSync(transcript, `${JSON.stringify({ ...o, sessionId, entrypoint: "claude-vscode", timestamp: new Date().toISOString() })}\n`);

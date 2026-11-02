@@ -530,3 +530,10 @@ React 19 줄 번호는 react-refresh가 파일 앞에 줄을 끼워 넣어 3줄 
 - macOS: 프로세스 정보는 `ps -A -o pid=,ppid=,lstart=,comm=`(LC_ALL=C) 한 번으로 표를 만들어 2초 재사용(`psReader`), 시작 시각은 lstart. Claude Code 레지스트리 파일의 procStart는 Linux /proc 형식이라 다른 곳에서는 비교하지 않는다(`PROC_START_COMPARABLE`). dev 서버는 `lsof -iTCP:<port> -sTCP:LISTEN -Fp` → `lsof -a -p <pid> -d cwd -Fn`. `scripts/switchboard`는 bash 3.2·BSD 도구로도 돌게(readlink -f·sort -V 제거).
 - 검증: Linux에서 `SWITCHBOARD_PROC_SOURCE=ps SWITCHBOARD_PORT_OWNER=lsof`로 맥 경로를 켜고 E2E 전체 통과(추천 `dev 서버` 포함). 실제 맥은 [TESTING-MACOS.md](TESTING-MACOS.md)로 확인 예정.
 
+### 세션 목록을 레지스트리 파일에서 (0.2.1, 2026-11-02, 사용자 문제 제기: "세션 로드에 150MB는 크다")
+
+- 실측: `claude agents --json` 1회 최대 RSS 144MB·CPU 0.2초. 데몬은 15초마다 + 레지스트리 파일이 바뀔 때마다(세션 상태 변화) 불렀다. 데몬 상주 메모리는 단일 파일 77MB / 소스 실행 119MB(TS 타입 제거 비용).
+- 이제 평소에는 `~/.claude/sessions/<pid>.json`을 직접 읽는다(150개 1.6ms). 대화형(kind interactive)만, pid가 살아 있고 시작 시각이 맞는 것만: Linux는 파일 procStart = /proc starttime, 그 밖은 ps 시작 시각이 세션 startedAt + 60초보다 늦으면 재사용된 pid로 본다. 실제 PC에도 번호가 재사용된 예전 파일이 있었다(파일 150개 중 살아 있는 세션 7개).
+- `claude agents --json`은 시작할 때와 5분마다만: 백그라운드 세션(파일에 없음)을 얻고, 공식 목록의 대화형 세션이 파일에 다 있는지 맞춰 본다(`filesAgree`). 어긋나면 다음 확인까지 공식 명령으로만(`source: "agents"`, 경고). 공식 명령이 실패해도 파일로 계속 간다. 스냅숏에 `source`.
+- 실측 결과: 재시작 뒤 1분 동안 `claude agents` 실행 0회, 세션 9개·보낼 수 있음 7개로 공식 명령과 동일. E2E는 가짜 세션이 전체 형식의 레지스트리 파일을 남기게 해 파일 경로로 돌고(`source = registry` 확인), 맥 경로(ps)로도 통과.
+

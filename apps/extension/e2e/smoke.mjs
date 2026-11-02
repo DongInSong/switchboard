@@ -105,6 +105,7 @@ async function main() {
   const sessions = execFileSync(process.execPath, [cli, "sessions", "--json"], { env, encoding: "utf8" });
   const fake = JSON.parse(sessions).sessions.find((s) => s.name === "fake-e2e");
   check("가짜 세션 발견 + 격리 tmux pane 연결", fake?.dispatchable === true && fake?.tmux?.session === "e2e", fake?.tmux?.paneId);
+  check("세션 목록 출처 = 레지스트리 파일(claude agents는 가끔만)", JSON.parse(sessions).source === "registry", JSON.parse(sessions).source);
   const vs = JSON.parse(sessions).sessions.find((s) => s.name === "fake-vscode");
   check("VS Code 세션: tmux 밖이어도 VS Code 방식으로 보낼 수 있음", vs?.surface === "vscode" && vs?.delivery === "vscode" && vs?.dispatchable === true, JSON.stringify({ surface: vs?.surface, delivery: vs?.delivery }));
 
