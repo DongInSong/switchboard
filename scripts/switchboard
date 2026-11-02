@@ -1,10 +1,31 @@
 #!/usr/bin/env bash
-# 기본 Node 버전과 상관없이 Node 24 이상으로 Switchboard CLI를 실행한다.
-# 원하면: ln -s ~/project/switchboard/scripts/switchboard ~/.local/bin/switchboard
+# Runs the Switchboard CLI with Node 24+, whatever your default Node is.
+# Optional: ln -s ~/project/switchboard/scripts/switchboard ~/.local/bin/switchboard
+# Portable to macOS (bash 3.2, BSD tools): no readlink -f, no sort -V.
 set -euo pipefail
-root="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
-node_bin=""
-for d in $(ls -d "$HOME"/.nvm/versions/node/v2[4-9].*/bin 2>/dev/null | sort -V -r); do
-  node_bin="$d/node"; break
+
+src="$0"
+while [ -L "$src" ]; do
+  dir="$(cd "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  case "$src" in /*) ;; *) src="$dir/$src" ;; esac
 done
+root="$(cd "$(dirname "$src")/.." && pwd)"
+
+major() { "$1" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
+
+node_bin=""
+if command -v node >/dev/null 2>&1 && [ "$(major node)" -ge 24 ]; then
+  node_bin="node"
+else
+  best=0
+  for d in "$HOME"/.nvm/versions/node/v*/bin /opt/homebrew/opt/node@24/bin /usr/local/opt/node@24/bin /opt/homebrew/bin /usr/local/bin; do
+    [ -x "$d/node" ] || continue
+    v="$(major "$d/node")"
+    if [ "$v" -ge 24 ] && [ "$v" -gt "$best" ]; then
+      node_bin="$d/node"
+      best="$v"
+    fi
+  done
+fi
 exec "${node_bin:-node}" "$root/apps/daemon/bin/switchboard.js" "$@"

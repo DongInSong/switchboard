@@ -57,6 +57,8 @@ export type AppDeps = {
   heartbeatMs?: number;
   /** 확장이 lang을 안 보냈을 때 프롬프트 언어(설정 language). */
   lang?: PromptLang;
+  /** 토큰이 필요한 요청마다(무활동 종료 판단). */
+  onActivity?: () => void;
 };
 
 /** 브라우저 확장 오리진만 허용한다. 웹 페이지(http/https)와 sandbox iframe("null")은 거부. */
@@ -192,6 +194,7 @@ export function createApp(d: AppDeps): Hono {
   // 여기부터는 토큰 필요.
   app.use("/v1/*", async (c, next) => {
     if (!(await d.auth.verify(bearer(c)))) return c.json({ error: "unauthorized" }, 401);
+    d.onActivity?.();
     await next();
   });
 

@@ -80,6 +80,7 @@ async function run(argv: string[]): Promise<number> {
       json: { type: "boolean", default: false },
       all: { type: "boolean", default: false },
       apply: { type: "boolean", default: false },
+      background: { type: "boolean", default: false },
       browser: { type: "string", multiple: true },
       "extension-id": { type: "string", multiple: true },
       watch: { type: "boolean", default: false },
@@ -110,7 +111,7 @@ async function run(argv: string[]): Promise<number> {
   }
   switch (command) {
     case "start":
-      return start({ port }, style);
+      return start({ port, background: values.background }, style);
     case "pair":
       return pair({ port, reset: values.reset }, style);
     case "status":

@@ -16,6 +16,7 @@ import { cleanup, formatBytes } from "../retention.ts";
 import { createApp } from "../server.ts";
 import { openUri, vscodeSessionUri } from "../opener.ts";
 import { t } from "../i18n.ts";
+import { shouldIdleExit } from "../idle.ts";
 import { loadSettings, requireSettings } from "../settings.ts";
 import { Store } from "../store.ts";
 import type { Style } from "./format.ts";
@@ -66,7 +67,7 @@ function stateGlyph(d: Dispatch, style: Style): string {
 }
 
 /** 포그라운드로 데몬을 띄운다. Ctrl+C로 종료. */
-export async function start(opts: { port?: number }, style: Style): Promise<number> {
+export async function start(opts: { port?: number; background?: boolean }, style: Style): Promise<number> {
   const paths = defaultPaths();
   const settings = requireSettings();
   const port = opts.port ?? settings.port;
@@ -97,7 +98,8 @@ export async function start(opts: { port?: number }, style: Style): Promise<numb
     },
     log: (m) => process.stdout.write(`${time()}  ${style.dim("⎿")} ${m}\n`),
   });
-  const app = createApp({ auth, store, registry, paths, port, context, dispatcher, bus, lang: settings.language });
+  let lastActivity = Date.now();
+  const app = createApp({ auth, store, registry, paths, port, context, dispatcher, bus, lang: settings.language, onActivity: () => (lastActivity = Date.now()) });
 
   registry.on("error", (e) => process.stderr.write(`! registry: ${e.message}\n`));
   let lastSummary = "";
@@ -150,6 +152,17 @@ export async function start(opts: { port?: number }, style: Style): Promise<numb
   await new Promise<void>((resolve) => {
     process.once("SIGINT", resolve);
     process.once("SIGTERM", resolve);
+    // 브라우저가 켠 데몬: 안 쓰면 스스로 끈다(다음에 필요하면 호스트가 다시 켠다)
+    if (opts.background && settings.idleExitMs > 0) {
+      const idleTimer = setInterval(() => {
+        if (shouldIdleExit({ now: Date.now(), lastActivity, idleMs: settings.idleExitMs, activeDispatches: store.activeDispatches().length })) {
+          clearInterval(idleTimer);
+          process.stdout.write(`${time()}  ${style.dim(t("serve.idleExit", { min: Math.round(settings.idleExitMs / 60_000) }))}\n`);
+          resolve();
+        }
+      }, Math.min(30_000, settings.idleExitMs));
+      idleTimer.unref();
+    }
   });
   clearInterval(sweepTimer);
   rmSync(paths.pidFile, { force: true });

@@ -38,8 +38,25 @@ export function localPort(url: string): number | null {
   }
 }
 
-/** 페이지 포트를 연 프로세스의 작업 디렉터리. */
+/** `lsof -F` 출력에서 필드 하나(p = pid, n = 이름/경로)의 첫 값. */
+export function lsofField(out: string, field: "p" | "n"): string | null {
+  const line = out.split("\n").find((l) => l.startsWith(field));
+  return line ? line.slice(1) : null;
+}
+
+/** macOS: lsof로 포트를 연 프로세스와 그 작업 디렉터리. */
+async function portOwnerCwdLsof(port: number): Promise<string | null> {
+  const owner = await run("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fp"], { timeoutMs: 2000 });
+  const pid = lsofField(owner.stdout, "p");
+  if (!pid) return null;
+  const cwd = await run("lsof", ["-a", "-p", pid, "-d", "cwd", "-Fn"], { timeoutMs: 2000 });
+  return lsofField(cwd.stdout, "n");
+}
+
+/** 페이지 포트를 연 프로세스의 작업 디렉터리. Linux는 ss + /proc, macOS 등은 lsof. */
 export async function portOwnerCwd(port: number): Promise<string | null> {
+  // 테스트용: SWITCHBOARD_PORT_OWNER=lsof 이면 Linux에서도 macOS 경로를 쓴다
+  if (process.platform !== "linux" || process.env.SWITCHBOARD_PORT_OWNER === "lsof") return portOwnerCwdLsof(port);
   const res = await run("ss", ["-ltnpH", `sport = :${port}`], { timeoutMs: 2000 });
   if (res.code !== 0) return null;
   const owner = parseSsListeners(res.stdout).find((l) => l.port === port);

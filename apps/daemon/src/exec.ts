@@ -13,7 +13,7 @@ export type ExecResult = {
 export function run(
   cmd: string,
   args: readonly string[],
-  opts: { timeoutMs?: number; cwd?: string; input?: string } = {},
+  opts: { timeoutMs?: number; cwd?: string; input?: string; env?: NodeJS.ProcessEnv } = {},
 ): Promise<ExecResult> {
   return new Promise((resolve) => {
     const child = execFile(
@@ -23,6 +23,7 @@ export function run(
         timeout: opts.timeoutMs ?? 10_000,
         maxBuffer: 16 * 1024 * 1024,
         cwd: opts.cwd,
+        ...(opts.env ? { env: opts.env } : {}),
         encoding: "utf8",
         windowsHide: true,
       },

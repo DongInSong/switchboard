@@ -10,7 +10,7 @@ import {
 } from "@switchboard/protocol";
 import { listAgents, listAgentsFromFile, type AgentsResult, type RawAgent } from "./agents.ts";
 import { cachedGitInfo } from "./git.ts";
-import { ancestry, readStat, type ProcStat } from "./proc.ts";
+import { PROC_START_COMPARABLE, ancestry, readStat, type ProcStat } from "./proc.ts";
 import { readRegistryFile, sessionsDir, type RegistryFileInfo } from "./registryFile.ts";
 import { listPanes, type Pane, type PanesResult } from "./tmux.ts";
 
@@ -69,7 +69,7 @@ export function locatePane(
   const self = chain[0];
   const hint = registryFile?.tmux;
   if (!self || !hint) return undefined;
-  if (registryFile.procStart && registryFile.procStart !== self.startTime) return undefined;
+  if (PROC_START_COMPARABLE && registryFile.procStart && registryFile.procStart !== self.startTime) return undefined;
   const pane = panes.find((p) => p.paneId === hint.paneId && p.session === hint.session);
   return pane ? toLocation(pane, "registry-file") : undefined;
 }
@@ -105,7 +105,7 @@ async function toSession(agent: RawAgent, panes: readonly Pane[], deps: Registry
     if (alive) {
       const file = await deps.readRegistryFile(agent.pid);
       // pid가 재사용됐으면 그 파일은 다른 프로세스 것
-      if (!file?.procStart || file.procStart === procStart) entrypoint = file?.entrypoint;
+      if (!file?.procStart || !PROC_START_COMPARABLE || file.procStart === procStart) entrypoint = file?.entrypoint;
       tmux = locatePane(chain, panes, file);
     }
   }

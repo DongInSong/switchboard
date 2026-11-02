@@ -574,8 +574,9 @@ async function main() {
     // ---- 9b. Native Messaging: 데몬을 끄고 HTTP 경로(토큰·주소)도 막은 뒤, 브라우저가 호스트를 띄워 데몬을 켜고 페어링 없이 보내는지
     check("확장 ID 고정(manifest key)", extId === EXTENSION_ID, extId);
     const launcher = join(tmp, "native-host.sh");
-    const keep = ["PATH", "SWITCHBOARD_STATE_DIR", "SWITCHBOARD_DATA_DIR", "SWITCHBOARD_PORT", "SWITCHBOARD_AGENTS_FILE", "SWITCHBOARD_TMUX_SOCKET", "SWITCHBOARD_CONFIG", "SWITCHBOARD_OPEN_COMMAND", "CLAUDE_CONFIG_DIR"];
-    writeFileSync(launcher, `#!/bin/sh\n${keep.map((k) => `export ${k}='${env[k]}'`).join("\n")}\nexec '${process.execPath}' '${cli}' native-host\n`, { mode: 0o755 });
+    const keep = ["PATH", "SWITCHBOARD_STATE_DIR", "SWITCHBOARD_DATA_DIR", "SWITCHBOARD_PORT", "SWITCHBOARD_AGENTS_FILE", "SWITCHBOARD_TMUX_SOCKET", "SWITCHBOARD_CONFIG", "SWITCHBOARD_OPEN_COMMAND", "CLAUDE_CONFIG_DIR", "SWITCHBOARD_PROC_SOURCE", "SWITCHBOARD_PORT_OWNER"];
+    const exportsSh = keep.filter((k) => env[k] !== undefined).map((k) => `export ${k}='${env[k]}'`);
+    writeFileSync(launcher, `#!/bin/sh\n${exportsSh.join("\n")}\nexec '${process.execPath}' '${cli}' native-host\n`, { mode: 0o755 });
     // --user-data-dir를 쓰면 Chromium은 그 안의 NativeMessagingHosts에서 찾는다(사용자 실제 브라우저 설정은 건드리지 않음)
     mkdirSync(join(tmp, "profile", "NativeMessagingHosts"), { recursive: true });
     writeFileSync(

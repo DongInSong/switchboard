@@ -35,6 +35,7 @@ export const SETTINGS: readonly SettingDef[] = [
   { key: "tmuxBin", default: "tmux", kind: str, env: "SWITCHBOARD_TMUX_BIN", help: { en: "tmux executable", ko: "tmux 실행 파일" } },
   { key: "vscode.scheme", default: "vscode", kind: str, env: "SWITCHBOARD_VSCODE_SCHEME", help: { en: "VS Code URL scheme (Insiders: vscode-insiders)", ko: "VS Code 주소 스킴 (Insiders: vscode-insiders)" } },
   { key: "openCommand", default: "auto", kind: str, env: "SWITCHBOARD_OPEN_COMMAND", help: { en: "Command that opens URLs (auto: Windows from WSL, open on macOS, xdg-open on Linux)", ko: "주소를 여는 명령 (auto: WSL은 Windows, macOS open, Linux xdg-open)" } },
+  { key: "daemon.idleExitMinutes", default: 30, kind: num(0, 7 * 24 * 60), env: "SWITCHBOARD_IDLE_EXIT_MINUTES", help: { en: "A daemon started by the browser exits after this many idle minutes (0 = never)", ko: "브라우저가 켠 데몬은 이만큼(분) 안 쓰면 꺼짐 (0 = 안 꺼짐)" } },
   { key: "retention.sentDays", default: 14, kind: num(0, 3650), env: "SWITCHBOARD_RETENTION_DAYS", help: { en: "Days to keep captures of sent requests (0 = forever)", ko: "보낸 요청 캡처 보관 일수 (0 = 무기한)" } },
   { key: "retention.unsentHours", default: 24, kind: num(0, 24 * 365), env: "SWITCHBOARD_UNSENT_HOURS", help: { en: "Hours to keep captures never sent (0 = forever)", ko: "보내지 않은 캡처 보관 시간 (0 = 무기한)" } },
   { key: "recommend.weights.source", default: 0.45, kind: num(0, 1), help: { en: "Ranking weight: source match", ko: "추천 가중치: 소스 일치" }, advanced: true },
@@ -65,6 +66,8 @@ export type Settings = {
   vscodeScheme: string;
   openCommand: string;
   retention: { days: number; unsentHours: number };
+  /** 브라우저가 켠(--background) 데몬의 무활동 종료. 0이면 안 꺼짐. */
+  idleExitMs: number;
   recommend: { weights: { source: number; devServer: number; recent: number; topic: number; previous: number }; recentHalfLifeMs: number };
   dispatch: { pasteDelayMs: number; pasteVisibleMs: number; verifyTimeoutMs: number; queueTimeoutMs: number; workTimeoutMs: number; pasteTimeoutMs: number };
 };
@@ -198,6 +201,7 @@ export function loadSettings(env: NodeJS.ProcessEnv = process.env, file = config
           vscodeScheme: v("vscode.scheme") as string,
           openCommand: v("openCommand") as string,
           retention: { days: n("retention.sentDays"), unsentHours: n("retention.unsentHours") },
+          idleExitMs: n("daemon.idleExitMinutes") * 60_000,
           recommend: { weights, recentHalfLifeMs: n("recommend.recentHalfLifeMinutes") * 60_000 },
           dispatch: {
             pasteDelayMs: n("dispatch.pasteDelayMs"),

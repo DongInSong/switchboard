@@ -74,7 +74,7 @@ scripts/switchboard config     # 설정 보기 (값과 출처), config set <키>
 
 설정은 `~/.config/switchboard/config.json`(환경변수가 우선). 확장 쪽(데몬 주소, 자동 복원 사이트, 단축키)은 사이드 패널 `3 설정`.
 
-> 지원: Linux, Windows + WSL2. 맥(macOS)은 아직 안 됨 — 세션·프로세스 확인이 리눅스 `/proc`를 읽어서 맥에서는 세션이 보기 전용으로 나온다(`ps`/`lsof`로 옮길 예정).
+> 지원: Linux, Windows + WSL2. 맥(macOS)은 구현(`ps`·`lsof`) 후 실제 맥에서 확인 중 — [docs/TESTING-MACOS.md](docs/TESTING-MACOS.md).
 
 ## 릴리즈로 설치
 
@@ -86,7 +86,7 @@ node switchboard.mjs native install --apply  # 브라우저가 Switchboard를 �
 node switchboard.mjs claude                  # tmux 안에서 Claude Code 실행
 ```
 
-확장을 새로고침하면 끝. 확장이 필요할 때 브라우저가 호스트를 띄우고, 호스트가 데몬을 백그라운드로 켠다(데몬 켜 두기·페어링 불필요). 끄기는 `node switchboard.mjs stop`, 등록 해제는 `native uninstall --apply`. 등록하지 않으면 예전처럼 `node switchboard.mjs start` + `node switchboard.mjs pair`.
+확장을 새로고침하면 끝. 확장이 필요할 때 브라우저가 호스트를 띄우고, 호스트가 데몬을 백그라운드로 켠다(데몬 켜 두기·페어링 불필요). 이렇게 켜진 데몬은 30분 동안 안 쓰고 진행 중인 작업도 없으면 스스로 꺼지고(`daemon.idleExitMinutes`), 다음에 쓰면 다시 켜진다. 끄기는 `node switchboard.mjs stop`, 등록 해제는 `native uninstall --apply`. 등록하지 않으면 예전처럼 `node switchboard.mjs start` + `node switchboard.mjs pair`.
 
 맥 단축키: Alt 대신 Option(`⌥⇧S` 선택 시작, `opt+a` …), 보내기 `⌘⏎`.
 

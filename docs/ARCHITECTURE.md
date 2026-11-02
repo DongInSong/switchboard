@@ -524,3 +524,9 @@ React 19 줄 번호는 react-refresh가 파일 앞에 줄을 끼워 넣어 3줄 
 - 실측: Windows `cmd.exe /d /c` → `wsl.exe` → node 호스트로 길이 접두 바이너리가 깨지지 않고 오감(hello + 세션 목록 37KB 응답). `switchboard stop`(pid 파일), `native status`, `doctor`에 등록 상태.
 - E2E: 데몬을 끄고 확장의 토큰·주소를 지워 HTTP를 막은 뒤, 프로필의 `NativeMessagingHosts`(`--user-data-dir` 안이라 실제 브라우저 설정은 안 건드림)에 등록 → 설정 탭 `● 연결됨 · 네이티브`, 데몬 자동 시작, 업로드·전달·썸네일(바이너리).
 
+### 무활동 종료 · macOS (2026-11-02)
+
+- 브라우저(호스트)가 켠 데몬은 `start --background`. 토큰이 필요한 API 요청을 활동으로 치고(/v1/health 제외), `daemon.idleExitMinutes`(기본 30, 0 = 안 꺼짐) 동안 없고 진행 중인 전달도 없으면 스스로 종료(pid 파일 정리). 직접 `switchboard start`로 켠 데몬은 안 꺼진다. 다음 사용 때 호스트가 다시 켠다.
+- macOS: 프로세스 정보는 `ps -A -o pid=,ppid=,lstart=,comm=`(LC_ALL=C) 한 번으로 표를 만들어 2초 재사용(`psReader`), 시작 시각은 lstart. Claude Code 레지스트리 파일의 procStart는 Linux /proc 형식이라 다른 곳에서는 비교하지 않는다(`PROC_START_COMPARABLE`). dev 서버는 `lsof -iTCP:<port> -sTCP:LISTEN -Fp` → `lsof -a -p <pid> -d cwd -Fn`. `scripts/switchboard`는 bash 3.2·BSD 도구로도 돌게(readlink -f·sort -V 제거).
+- 검증: Linux에서 `SWITCHBOARD_PROC_SOURCE=ps SWITCHBOARD_PORT_OWNER=lsof`로 맥 경로를 켜고 E2E 전체 통과(추천 `dev 서버` 포함). 실제 맥은 [TESTING-MACOS.md](TESTING-MACOS.md)로 확인 예정.
+

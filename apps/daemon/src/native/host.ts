@@ -37,7 +37,8 @@ export async function healthOk(port: number, f: typeof fetch = fetch): Promise<b
 
 export function spawnDaemonDetached(script: string, logFile: string): void {
   const fd = openSync(logFile, "a");
-  const child = spawn(process.execPath, [script, "start"], { detached: true, stdio: ["ignore", fd, fd], env: process.env });
+  // --background: 안 쓰면 스스로 꺼지는 데몬(daemon.idleExitMinutes)
+  const child = spawn(process.execPath, [script, "start", "--background"], { detached: true, stdio: ["ignore", fd, fd], env: process.env });
   child.unref();
   closeSync(fd);
 }

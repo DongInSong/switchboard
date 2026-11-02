@@ -52,7 +52,7 @@ Plain terminals can't be typed into from outside (TIOCSTI is off on modern kerne
 
 ## Requirements
 
-- Linux or Windows with WSL2. macOS is not supported yet: session and process checks read Linux `/proc` (a `ps`/`lsof` port is planned), so sessions show as view only there.
+- Linux or Windows with WSL2. macOS: implemented (`ps`, `lsof`) and being verified on a real Mac, see [docs/TESTING-MACOS.md](docs/TESTING-MACOS.md).
 - Node.js 24+, pnpm (via corepack)
 - tmux 3.2+
 - Claude Code with `claude agents --json` (tested with 2.1.316)
@@ -73,7 +73,7 @@ node switchboard.mjs native install --apply  # register the native messaging hos
 node switchboard.mjs claude                  # start Claude Code inside tmux
 ```
 
-Reload the extension and you're done: the browser launches the host when the extension needs it, the host starts the daemon in the background, and there's no pairing. `node switchboard.mjs stop` stops the background daemon; `native uninstall --apply` removes the registration.
+Reload the extension and you're done: the browser launches the host when the extension needs it, the host starts the daemon in the background, and there's no pairing. A daemon started this way exits after 30 idle minutes with nothing in flight (`daemon.idleExitMinutes`) and comes back on the next use. `node switchboard.mjs stop` stops it; `native uninstall --apply` removes the registration.
 
 Without the native host, run `node switchboard.mjs start` and pair once with `node switchboard.mjs pair` (the side panel asks for the code).
 
@@ -133,7 +133,7 @@ Precedence: environment variables > `~/.config/switchboard/config.json` > defaul
 ## Limits
 
 - React 19 line numbers are approximate (`:~12`); source maps are planned.
-- macOS is not supported yet (process checks use Linux `/proc`).
+- macOS support is new and not yet verified on real hardware.
 - Delivery reads Claude Code's input box from the tmux screen; a UI change in Claude Code may need an update here.
 - Captures of sent requests are kept 14 days after the last activity, unsent ones 24 hours; cleanup is automatic (`switchboard clean --dry-run` to preview).
 
