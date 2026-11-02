@@ -32,7 +32,7 @@ switchboard daemon ─ finds sessions · reads context · ranks · delivers · t
 Your existing Claude Code sessions
 ```
 
-- Sessions come from `claude agents --json`, matched to tmux panes by process ancestry.
+- Sessions come from Claude Code's session registry files (cross-checked with `claude agents --json` every few minutes), matched to tmux panes by process ancestry.
 - Delivery pastes into the pane only when the input box is empty and no permission prompt is open, checks that the paste is visible before pressing Enter, and confirms the submit. It never retries Enter blindly.
 - Completion is read from the session transcript (busy → idle); the chip shows Claude's final answer as Markdown.
 
@@ -54,7 +54,7 @@ Plain terminals can't be typed into from outside (TIOCSTI is off on modern kerne
 
 - Linux or Windows with WSL2. macOS: implemented (`ps`, `lsof`) and being verified on a real Mac, see [docs/TESTING-MACOS.md](docs/TESTING-MACOS.md).
 - Node.js 24+, pnpm (via corepack)
-- tmux 3.2+
+- tmux 3.2+ for terminal sessions (VS Code sessions don't need it)
 - Claude Code with `claude agents --json` (tested with 2.1.316)
 - Edge or Chrome (Chromium MV3)
 

@@ -32,7 +32,7 @@ switchboard 데몬 ─ 세션 찾기 · 맥락 수집 · 추천 · 전달 · 추
 이미 떠 있는 Claude Code 세션들
 ```
 
-- 세션은 `claude agents --json`에서 가져오고, 프로세스 계보로 tmux 창(pane)과 맞춘다.
+- 세션은 Claude Code가 남기는 세션 기록 파일에서 가져오고(몇 분마다 `claude agents --json`과 맞춰 봄), 프로세스 계보로 tmux 창(pane)과 맞춘다.
 - 입력칸이 비어 있고 권한 확인 창이 없을 때만 붙여 넣고, 붙여 넣은 글이 보여야 Enter를 누르고, 제출됐는지 확인한다. Enter를 무작정 다시 보내지 않는다.
 - 끝났는지는 세션 대화 기록(작업 중 → 유휴)으로 알고, 칩에 Claude 최종 답변을 마크다운으로 그린다.
 
@@ -54,7 +54,7 @@ switchboard 데몬 ─ 세션 찾기 · 맥락 수집 · 추천 · 전달 · 추
 
 - Linux 또는 Windows + WSL2. 맥은 구현(`ps`·`lsof`) 후 실제 맥에서 확인 중 — [docs/TESTING-MACOS.md](docs/TESTING-MACOS.md)
 - Node.js 24+, pnpm(corepack)
-- tmux 3.2+
+- tmux 3.2+ (터미널 세션을 쓸 때만, VS Code 세션은 없어도 됨)
 - `claude agents --json`을 지원하는 Claude Code(2.1.316에서 확인)
 - Edge 또는 Chrome(Chromium MV3)
 

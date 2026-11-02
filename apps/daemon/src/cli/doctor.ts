@@ -39,20 +39,23 @@ export async function runChecks(bins: { claudeBin: string; tmuxBin: string } = {
     detail: agents.error ?? t("doc.agents", { n: agents.agents.length, live }),
   });
 
+  // tmux는 터미널 세션에만 필요하다(VS Code 세션은 없어도 됨). 없으면 실패가 아니라 안내, 낡은 버전만 실패.
   const tmux = await run(bins.tmuxBin, ["-V"], { timeoutMs: 5_000 });
   const tmuxVersion = /(\d+\.\d+)/.exec(tmux.stdout)?.[1];
   checks.push({
     name: "tmux",
-    ok: tmuxVersion !== undefined && versionAtLeast(tmuxVersion, [3, 2]),
-    detail: tmuxVersion ? t("doc.needTmux", { v: tmuxVersion }) : (tmux.error ?? t("doc.runFailed")),
+    ok: tmuxVersion === undefined || versionAtLeast(tmuxVersion, [3, 2]),
+    detail: tmuxVersion ? t("doc.needTmux", { v: tmuxVersion }) : t("doc.tmuxOptional"),
   });
 
-  const panes = await listPanes(bins.tmuxBin);
-  checks.push({
-    name: "tmux server",
-    ok: panes.serverRunning,
-    detail: panes.serverRunning ? t("doc.panes", { n: panes.panes.length }) : (panes.error ?? t("doc.notRunning")),
-  });
+  if (tmuxVersion !== undefined) {
+    const panes = await listPanes(bins.tmuxBin);
+    checks.push({
+      name: "tmux server",
+      ok: true,
+      detail: panes.serverRunning ? t("doc.panes", { n: panes.panes.length }) : t("doc.tmuxIdle"),
+    });
+  }
 
   const dir = sessionsDir();
   const dirOk = await access(dir).then(
