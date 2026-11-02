@@ -18,7 +18,7 @@ Point at something in your browser, say what to change, and Switchboard hands it
 
 Nothing leaves your machine except what Claude Code itself sends. The daemon only listens on `127.0.0.1`.
 
-> Status: early (0.1.0). Built and tested on Windows + WSL2 with Edge. Not affiliated with Anthropic.
+> Status: early (0.2.0). Built and tested on Windows + WSL2 with Edge; macOS support is new. Not affiliated with Anthropic.
 
 ## How it works
 
@@ -75,22 +75,26 @@ node switchboard.mjs claude                  # start Claude Code inside tmux
 
 Reload the extension and you're done: the browser launches the host when the extension needs it, the host starts the daemon in the background, and there's no pairing. A daemon started this way exits after 30 idle minutes with nothing in flight (`daemon.idleExitMinutes`) and comes back on the next use. `node switchboard.mjs stop` stops it; `native uninstall --apply` removes the registration.
 
+On WSL, `native install` registers the host for Edge and Chrome on Windows (files in `%LOCALAPPDATA%\switchboard`, keys under `HKCU\Software\…\NativeMessagingHosts`); the Windows side runs it through `wsl.exe`. On Linux and macOS it writes to each browser's `NativeMessagingHosts` folder.
+
 Without the native host, run `node switchboard.mjs start` and pair once with `node switchboard.mjs pair` (the side panel asks for the code).
 
 ### From source
 
 ```bash
-git clone <this repo> && cd switchboard
+git clone https://github.com/DongInSong/switchboard && cd switchboard
 corepack enable pnpm
 pnpm install
-pnpm ext:build                  # → apps/extension/.output/edge-mv3
-scripts/switchboard doctor      # checks node, claude, tmux
-scripts/switchboard start       # daemon (foreground)
+pnpm ext:build                              # → apps/extension/.output/edge-mv3 (Chrome: pnpm --filter @switchboard/extension build:chrome)
+scripts/switchboard doctor                  # checks node, claude, tmux
+scripts/switchboard native install --apply  # or: scripts/switchboard start + pair
 ```
 
 Load the extension: `edge://extensions` (or `chrome://extensions`) → Developer mode → Load unpacked → `apps/extension/.output/edge-mv3`. From WSL, use the `\\wsl.localhost\<distro>\…` path, or `pnpm --filter @switchboard/extension sync:windows` to copy it to a Windows folder.
 
-Pair once: run `scripts/switchboard pair` and type the 6-digit code into the side panel.
+### Upgrading from 0.1.0
+
+The extension ID is now fixed (so the native host can allow only this extension). Remove the old Switchboard in `edge://extensions`, load the new one, then run `native install --apply`. Pairing is no longer needed.
 
 ## Use
 
@@ -106,19 +110,35 @@ scripts/switchboard claude            # start Claude Code inside tmux (args go t
 - Chips: click to expand the full answer, then write a follow-up (`alt+a` works there too)
 - Popovers and chips survive reloads and SPA navigation
 
-Side panel: `1 sessions` · `2 history` (full answers, follow-ups) · `3 settings` (daemon address, auto-restore sites, language, shortcut).
+Side panel: `1 sessions` · `2 history` (full answers, follow-ups) · `3 settings` (connection `native` or `HTTP`, daemon address, auto-restore sites, language, shortcut).
 
 <p>
   <img src="docs/images/panel-history.png" alt="Side panel history with the full answer and a follow-up box" width="44%">
   <img src="docs/images/answer-dark.png" alt="Dark theme" width="54%">
 </p>
 
+## Commands
+
+| Command | What |
+| --- | --- |
+| `switchboard claude [args…]` | start Claude Code inside tmux (args go to claude) |
+| `switchboard native install\|uninstall\|status [--apply]` | let the browser start Switchboard (preview unless `--apply`) |
+| `switchboard start` / `stop` | run the daemon in the foreground / stop a background one |
+| `switchboard pair [--reset]` | pairing code for HTTP mode / unpair all |
+| `switchboard sessions [--watch]` | Claude Code sessions and how to reach them (tmux pane or `vscode`) |
+| `switchboard requests`, `send <id>` | recent requests; send a saved one and follow it |
+| `switchboard config [get\|set\|unset]` | settings and where each value comes from |
+| `switchboard doctor`, `clean [--dry-run]` | check the environment; remove old captures |
+
+From a release, run them as `node switchboard.mjs …`; from source, `scripts/switchboard …`.
+
 ## Configure
 
 ```bash
-scripts/switchboard config                    # every value and where it came from
-scripts/switchboard config set port 7600
-scripts/switchboard config set language ko    # CLI text and default prompt language
+switchboard config                               # every value and where it came from
+switchboard config set language ko               # CLI text and default prompt language
+switchboard config set daemon.idleExitMinutes 0  # keep a browser-started daemon running
+switchboard config set port 7600                 # HTTP mode; change the address in the side panel too
 ```
 
 Precedence: environment variables > `~/.config/switchboard/config.json` > defaults. Invalid values stop the daemon with a reason instead of silently falling back. The extension's language follows the browser unless you pick one in settings; prompts are written in that language.
@@ -146,7 +166,7 @@ pnpm fixture   # test page on http://127.0.0.1:5199
 pnpm build:daemon   # dist/switchboard.mjs, the single-file daemon for releases
 ```
 
-README images are taken by the same E2E run: `README_SHOTS=docs/images pnpm e2e`.
+README images are taken by the same E2E run: `README_SHOTS=docs/images pnpm e2e`. `SWITCHBOARD_PROC_SOURCE=ps SWITCHBOARD_PORT_OWNER=lsof pnpm e2e` runs the macOS code paths on Linux; on a real Mac, follow [docs/TESTING-MACOS.md](docs/TESTING-MACOS.md).
 
 Design notes (Korean): [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/UX.md](docs/UX.md), [docs/TECH-STACK.md](docs/TECH-STACK.md), [docs/RESEARCH.md](docs/RESEARCH.md).
 
