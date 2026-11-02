@@ -509,3 +509,8 @@ React 19 줄 번호는 react-refresh가 파일 앞에 줄을 끼워 넣어 3줄 
 - MIT 라이선스(`LICENSE`, 각 package.json `license`).
 - README 이미지(`docs/images/`)는 E2E가 영어 화면으로 찍는다: `README_SHOTS=docs/images pnpm e2e`(칩이 없는 새 탭에서 고르기·작성·답변·VS Code·사이드 패널). 가짜 Claude 답변도 영어 예시로 바꿨다.
 
+### 릴리즈 0.1.0 (2026-11-02)
+
+- https://github.com/DongInSong/switchboard/releases/tag/v0.1.0 — `switchboard.mjs`(데몬·CLI 단일 파일, `scripts/build-daemon.mjs`가 rolldown으로 묶음, Node 24+만 필요), `switchboard-0.1.0-{edge,chrome}.zip`(WXT `zip.artifactTemplate`), `SHA256SUMS.txt`. E2E를 단일 파일 데몬으로도 돌려 통과(`E2E_CLI=dist/switchboard.mjs`).
+- 맥 단축키: Option+글자가 å·π 같은 다른 글자로 들어와 `e.key` 비교가 안 됨 → `src/keys.ts`가 글자 또는 물리 키(`e.code`)로 맞춘다. 키 힌트·붙여넣기 안내도 맥이면 `opt`/`cmd`.
+
