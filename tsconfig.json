@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": ["packages/protocol/src", "packages/page-probe/src", "apps/daemon/src", "apps/daemon/bin", "vitest.config.ts"]
+}

@@ -1,0 +1,11 @@
+{
+  "description": {
+    "message": "Point at what to fix and send it to the right Claude Code session"
+  },
+  "startPick": {
+    "message": "Start picking"
+  },
+  "menuPanel": {
+    "message": "Sessions panel"
+  }
+}

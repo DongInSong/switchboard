@@ -1,0 +1,26 @@
+{
+  "name": "switchboard",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/extension/tsconfig.json && tsc -p apps/fixture/tsconfig.json",
+    "check": "pnpm typecheck && pnpm test",
+    "sessions": "node apps/daemon/bin/switchboard.js sessions",
+    "e2e": "pnpm --filter @switchboard/extension e2e",
+    "ext:build": "pnpm --filter @switchboard/extension build",
+    "daemon": "node apps/daemon/bin/switchboard.js start",
+    "fixture": "pnpm --filter @switchboard/fixture dev"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "happy-dom": "^21.0.4",
+    "playwright": "^1.64.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

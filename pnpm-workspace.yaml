@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "integrations/*"
+minimumReleaseAgeExclude:
+  - hono@4.13.16

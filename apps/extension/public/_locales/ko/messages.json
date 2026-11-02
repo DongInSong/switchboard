@@ -1,0 +1,11 @@
+{
+  "description": {
+    "message": "고칠 곳을 짚어 Claude Code 세션으로"
+  },
+  "startPick": {
+    "message": "선택 시작"
+  },
+  "menuPanel": {
+    "message": "세션 패널"
+  }
+}

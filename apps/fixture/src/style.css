@@ -1,0 +1,17 @@
+body { margin: 0; font: 15px/1.5 system-ui, "Malgun Gothic", sans-serif; background: #f8fafc; color: #0f172a; }
+.header { display: flex; align-items: center; gap: 24px; height: 56px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.logo { font-weight: 700; }
+.nav { display: flex; gap: 16px; }
+.avatar-menu { margin-left: auto; position: relative; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; border: 0; background: #1e293b; color: #fff; cursor: pointer; }
+.dropdown { position: absolute; right: 0; top: 44px; width: 160px; margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; }
+.dropdown li { padding: 6px 10px; }
+main { padding: 24px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.card { padding: 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; }
+.card h2 { margin: 0 0 4px; font-size: 16px; }
+.card p { margin: 0; color: #475569; }
+.login { display: grid; gap: 8px; }
+.banner { max-width: 480px; padding: 24px 28px; border-radius: 16px; background: #fff7ed; border: 1px solid #fed7aa; }
+.banner h1 { margin: 0 0 6px; font-size: 20px; }
+.banner p { margin: 0; color: #9a3412; }

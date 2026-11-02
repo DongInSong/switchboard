@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.output/
+.wxt/
+*.log
+.env*
+coverage/
+playwright-report/
+test-results/
+.output-e2e/
