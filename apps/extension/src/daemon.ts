@@ -82,7 +82,7 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export async function status(): Promise<Result<{ paired: boolean; version: string; transport: Transport }>> {
+export async function status(): Promise<Result<{ paired: boolean; version: string; transport: Transport; nativeError?: string }>> {
   if (!native.resting) {
     try {
       const hello = await native.request({ type: "hello" }, 20_000);
@@ -94,8 +94,9 @@ export async function status(): Promise<Result<{ paired: boolean; version: strin
   const health = await call<{ version: string }>("/v1/health");
   if (!health.ok) return health;
   const me = await call<{ ok: boolean }>("/v1/me");
-  if (me.ok) return { ok: true, data: { paired: true, version: health.data.version, transport: "http" } };
-  if (me.error === "unauthorized") return { ok: true, data: { paired: false, version: health.data.version, transport: "http" } };
+  const nativeError = native.lastError ? { nativeError: native.lastError } : {};
+  if (me.ok) return { ok: true, data: { paired: true, version: health.data.version, transport: "http", ...nativeError } };
+  if (me.error === "unauthorized") return { ok: true, data: { paired: false, version: health.data.version, transport: "http", ...nativeError } };
   return me;
 }
 

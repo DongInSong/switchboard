@@ -62,6 +62,8 @@ Plain terminals can't be typed into from outside (TIOCSTI is off on modern kerne
 
 ### From a release
 
+Step by step for Linux, WSL and macOS: [docs/INSTALL.md](docs/INSTALL.md) (every release page has the same steps).
+
 1. Download `switchboard.mjs` and the extension zip (`switchboard-<version>-edge.zip` or `-chrome.zip`) from [Releases](https://github.com/DongInSong/switchboard/releases).
 2. Unzip the extension and load it: `edge://extensions` (or `chrome://extensions`) → Developer mode → Load unpacked.
 3. Let the browser start Switchboard itself (Node.js 24+):

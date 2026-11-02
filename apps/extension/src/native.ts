@@ -22,6 +22,8 @@ class NativeClient {
   #idle: ReturnType<typeof setTimeout> | undefined;
   /** 마지막으로 확인한 상태: 호스트로 연결됐는지. */
   ok = false;
+  /** 마지막 실패 이유(브라우저가 준 문구). 연결되면 지운다. 설정 탭에 보여 준다. */
+  lastError: string | null = null;
 
   get resting(): boolean {
     return Date.now() < this.#downUntil;
@@ -57,6 +59,7 @@ class NativeClient {
       // 등록이 없거나 호스트가 바로 죽으면 잠시 쉰다(그동안 HTTP)
       if (hadPending || /not found|forbidden|exited/i.test(reason)) {
         this.ok = false;
+        this.lastError = reason;
         this.#downUntil = Date.now() + RETRY_MS;
       }
     });
@@ -92,6 +95,7 @@ class NativeClient {
       this.#pending.set(id, {
         resolve: (r) => {
           this.ok = true;
+          this.lastError = null;
           resolve(r);
         },
         reject,

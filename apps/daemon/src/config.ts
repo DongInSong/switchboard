@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { requireSettings } from "./settings.ts";
 
-export const VERSION = "0.2.1";
+export const VERSION = "0.2.2";
 
 export type Paths = {
   /** 토큰, 페어링 코드 (사용자만 읽기). */

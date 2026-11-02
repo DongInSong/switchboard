@@ -62,6 +62,8 @@ switchboard 데몬 ─ 세션 찾기 · 맥락 수집 · 추천 · 전달 · 추
 
 ### 릴리즈로
 
+Linux·WSL·맥 단계별 설치: [docs/INSTALL.md](docs/INSTALL.md) (릴리즈 페이지마다 같은 설치법이 들어 있다).
+
 1. [Releases](https://github.com/DongInSong/switchboard/releases)에서 `switchboard.mjs`와 확장 zip(`switchboard-<버전>-edge.zip` 또는 `-chrome.zip`)을 받는다.
 2. zip을 풀어 `edge://extensions`(또는 `chrome://extensions`) → 개발자 모드 → 압축 풀린 확장 로드.
 3. 브라우저가 Switchboard를 직접 띄우게 등록한다(Node.js 24+):

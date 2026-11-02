@@ -290,10 +290,16 @@ function Settings({ onBaseChanged }: { onBaseChanged(): void }) {
   const check = useCallback(async () => {
     const res = await send({ type: "daemon/status" });
     const key = res.ok ? (res.data.paired ? "ok" : "unpaired") : "disconnected";
+    // HTTP로 붙었으면 네이티브가 왜 안 됐는지: 등록 안 됨 / 실패(브라우저가 준 이유)
+    const nativeNote = res.ok && res.data.transport === "http" && res.data.nativeError ? (/not found/i.test(res.data.nativeError) ? t("native.notSetUp") : t("native.failed")) : "";
     setBaseState({
-      tone: key === "ok" ? "ok" : key === "unpaired" ? "off" : "fail",
-      text: `● ${t(STATUS_KEY[key])}${res.ok ? ` v${res.data.version} · ${t(res.data.transport === "native" ? "transport.native" : "transport.http")}` : ""}`,
-      title: res.ok ? t(res.data.transport === "native" ? "transport.native.title" : "transport.http.title") : undefined,
+      tone: key === "ok" ? (nativeNote ? "waiting" : "ok") : key === "unpaired" ? "off" : "fail",
+      text: `● ${t(STATUS_KEY[key])}${res.ok ? ` v${res.data.version} · ${t(res.data.transport === "native" ? "transport.native" : "transport.http")}${nativeNote ? ` · ${nativeNote}` : ""}` : ""}`,
+      title: res.ok
+        ? res.data.nativeError && !/not found/i.test(res.data.nativeError)
+          ? t("native.failed.title", { reason: res.data.nativeError })
+          : t(res.data.transport === "native" ? "transport.native.title" : "transport.http.title")
+        : undefined,
     });
   }, []);
   useEffect(() => {

@@ -121,6 +121,9 @@ const ko = {
   "transport.native": "네이티브",
   "transport.http": "HTTP",
   "transport.native.title": "브라우저가 Switchboard를 직접 띄움(데몬 켜 두기·페어링 불필요)",
+  "native.notSetUp": "네이티브 미등록",
+  "native.failed": "네이티브 실패",
+  "native.failed.title": "{reason} — switchboard native status 로 확인, 고친 뒤 자동으로 다시 연결",
   "transport.http.title": "127.0.0.1 HTTP + 페어링. switchboard native install --apply 하면 데몬 켜 두기·페어링이 필요 없어짐",
 } as const;
 
@@ -239,6 +242,9 @@ const en: Record<Key, string> = {
   "transport.native": "native",
   "transport.http": "HTTP",
   "transport.native.title": "The browser starts Switchboard itself (no daemon to keep running, no pairing)",
+  "native.notSetUp": "native not set up",
+  "native.failed": "native failed",
+  "native.failed.title": "{reason} — check with switchboard native status; it reconnects on its own once fixed",
   "transport.http.title": "127.0.0.1 over HTTP with pairing. Run switchboard native install --apply to drop both",
 };
 

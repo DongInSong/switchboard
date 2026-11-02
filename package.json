@@ -16,7 +16,8 @@
     "ext:build": "pnpm --filter @switchboard/extension build",
     "daemon": "node apps/daemon/bin/switchboard.js start",
     "fixture": "pnpm --filter @switchboard/fixture dev",
-    "build:daemon": "node scripts/build-daemon.mjs"
+    "build:daemon": "node scripts/build-daemon.mjs",
+    "release:notes": "node scripts/release-notes.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
