@@ -7,6 +7,7 @@ const e2e = process.env.WXT_E2E === "1";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   outDir: e2e ? ".output-e2e" : ".output",
+  zip: { artifactTemplate: "switchboard-{{version}}-{{browser}}.zip" },
   manifest: {
     name: e2e ? "Switchboard (e2e)" : "Switchboard",
     description: "__MSG_description__",

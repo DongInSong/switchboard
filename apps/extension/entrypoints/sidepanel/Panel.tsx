@@ -4,6 +4,7 @@ import { send } from "../../src/messages.ts";
 import { DEFAULT_BASE, daemonPattern, normalizeDaemonBase, restoreHosts, restorePatterns } from "../../src/origins.ts";
 import { Markdown } from "../../src/ui/Markdown.tsx";
 import { LANG_KEY, loadLang, onLangChange, t, type Key, type LangSetting } from "../../src/i18n.ts";
+import { sendLabel } from "../../src/keys.ts";
 import { copyText, dispatchLabel, orderedSessions, pasteHint, projectName, relativeTime, statusOf, surfaceTag, waitLabel } from "../../src/ui/labels.ts";
 
 type Conn = "loading" | "ok" | "unpaired" | "disconnected";
@@ -201,7 +202,7 @@ function Detail({ r, onSent, snap }: { r: RequestInfo; onSent(id: number): void;
             }}
           />
           <button type="button" className="btn send" disabled={!canSend} onClick={() => void follow()}>
-            {sending ? "…" : t("follow")} <kbd>ctrl+⏎</kbd>
+            {sending ? "…" : t("follow")} <kbd>{sendLabel()}</kbd>
           </button>
           {error && <span className={error === pasteHint() ? "tone-waiting" : "err"}>{error}</span>}
         </div>

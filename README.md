@@ -58,7 +58,22 @@ Plain terminals can't be typed into from outside (TIOCSTI is off on modern kerne
 - Claude Code with `claude agents --json` (tested with 2.1.316)
 - Edge or Chrome (Chromium MV3)
 
-## Install (from source)
+## Install
+
+### From a release
+
+1. Download `switchboard.mjs` and the extension zip (`switchboard-<version>-edge.zip` or `-chrome.zip`) from [Releases](https://github.com/DongInSong/switchboard/releases).
+2. Unzip the extension and load it: `edge://extensions` (or `chrome://extensions`) → Developer mode → Load unpacked.
+3. Run the daemon with Node.js 24+:
+
+```bash
+node switchboard.mjs doctor     # checks node, claude, tmux
+node switchboard.mjs start      # daemon (foreground)
+node switchboard.mjs pair       # 6-digit code for the side panel
+node switchboard.mjs claude     # start Claude Code inside tmux
+```
+
+### From source
 
 ```bash
 git clone <this repo> && cd switchboard
@@ -80,6 +95,7 @@ scripts/switchboard claude            # start Claude Code inside tmux (args go t
 ```
 
 - `Alt+Shift+S` pick · `Ctrl+Enter` send · `Esc` close · right-click cancels picking
+- macOS: Option instead of Alt (`⌥⇧S` to pick, `opt+a` …), `⌘⏎` to send
 - `alt+a` add another element to the same request, even from another page or tab (reference)
 - `alt+l` attach this request to another open request
 - `alt+p` preview the exact prompt
@@ -122,6 +138,7 @@ Precedence: environment variables > `~/.config/switchboard/config.json` > defaul
 pnpm check     # typecheck + unit tests
 pnpm e2e       # headless Chromium end to end, with a fake Claude session on an isolated tmux server
 pnpm fixture   # test page on http://127.0.0.1:5199
+pnpm build:daemon   # dist/switchboard.mjs, the single-file daemon for releases
 ```
 
 README images are taken by the same E2E run: `README_SHOTS=docs/images pnpm e2e`.

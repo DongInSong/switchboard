@@ -1,5 +1,6 @@
 import type { Dispatch, ReasonTag, Session, SessionSnapshot, SourceHint, WaitReason } from "@switchboard/protocol";
 import { t, type Key } from "../i18n.ts";
+import { IS_MAC } from "../keys.ts";
 
 /** 화면 문구. 규칙은 docs/UX.md §6: 1~2단어, 설명 문장 없음. */
 
@@ -52,7 +53,8 @@ export async function copyText(text: string, root: Document | ShadowRoot = docum
   }
 }
 
-export const pasteHint = () => t("paste.hint");
+export const pasteHint = () => t("paste.hint", { paste: pasteKey() });
+export const pasteKey = (mac = IS_MAC) => (mac ? "cmd+v" : "ctrl+v");
 
 export function projectName(path: string): string {
   const parts = path.split("/").filter(Boolean);
@@ -141,7 +143,7 @@ const WAIT_KEY: Record<WaitReason, Key> = {
   paste: "paste.hint",
 };
 
-export const waitLabel = (w: WaitReason) => t(WAIT_KEY[w]);
+export const waitLabel = (w: WaitReason) => (w === "paste" ? pasteHint() : t(WAIT_KEY[w]));
 
 export function isFinal(d: Dispatch | null): boolean {
   return !d || d.state === "done" || d.state === "failed" || d.state === "cancelled";

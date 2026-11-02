@@ -3,7 +3,8 @@ import type { Dispatch, Recommendation, Rect, Session, SessionSnapshot } from "@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { send } from "../messages.ts";
 import { t } from "../i18n.ts";
-import { copyText, dispatchLabel, elapsed, isFinal, orderedSessions, pasteHint, primaryLabel, projectName, reasonLabel, sourceShort, statusOf, surfaceTag, waitLabel } from "../ui/labels.ts";
+import { altDigit, altLabel, isAlt, sendLabel } from "../keys.ts";
+import { copyText, pasteKey, dispatchLabel, elapsed, isFinal, orderedSessions, pasteHint, primaryLabel, projectName, reasonLabel, sourceShort, statusOf, surfaceTag, waitLabel } from "../ui/labels.ts";
 import type { DraftSummary } from "../drafts.ts";
 import { Markdown } from "../ui/Markdown.tsx";
 import { ThumbCanvas } from "../ui/ThumbCanvas.tsx";
@@ -383,20 +384,20 @@ function Popover({
       e.preventDefault();
       if (listOpen && selected) setListOpen(false);
       else close();
-    } else if (e.altKey && /^[1-3]$/.test(e.key)) {
+    } else if ((altDigit(e) ?? 9) <= 3) {
       e.preventDefault();
-      const s = quick[Number(e.key) - 1];
+      const s = quick[altDigit(e)! - 1];
       if (s) pick(s);
     } else if (e.altKey && e.key === "ArrowDown") {
       e.preventDefault();
       setListOpen((v) => !v);
-    } else if (e.altKey && (e.key === "p" || e.key === "P")) {
+    } else if (isAlt(e, "p")) {
       e.preventDefault();
       setPreviewOpen((v) => !v);
-    } else if (e.altKey && (e.key === "a" || e.key === "A")) {
+    } else if (isAlt(e, "a")) {
       e.preventDefault();
       onAttach();
-    } else if (e.altKey && (e.key === "l" || e.key === "L") && hasOthers) {
+    } else if (isAlt(e, "l") && hasOthers) {
       e.preventDefault();
       setLinkOpen((v) => !v);
     }
@@ -531,7 +532,7 @@ function Popover({
           </div>
         ) : (
           <>
-            <button type="button" className="sb-current" aria-haspopup="listbox" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} title="alt+↓">
+            <button type="button" className="sb-current" aria-haspopup="listbox" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} title={altLabel("↓")}>
               <Mode />
               {selected ? (
                 <>
@@ -585,23 +586,23 @@ function Popover({
       )}
       <div className="sb-keys">
         <button type="button" className="sb-key" onClick={onAttach} title={t("key.add.title")}>
-          <kbd>alt+a</kbd> {t("key.add")}
+          <kbd>{altLabel("a")}</kbd> {t("key.add")}
         </button>
         <span className="sb-sep">·</span>
         {hasOthers && (
           <>
             <button type="button" className="sb-key" aria-pressed={linkOpen} onClick={() => setLinkOpen((v) => !v)} title={t("key.link.title")}>
-              <kbd>alt+l</kbd> {t("key.link")}
+              <kbd>{altLabel("l")}</kbd> {t("key.link")}
             </button>
             <span className="sb-sep">·</span>
           </>
         )}
         <button type="button" className="sb-key" aria-pressed={previewOpen} onClick={() => setPreviewOpen((v) => !v)}>
-          <kbd>alt+p</kbd> {t("key.preview")}
+          <kbd>{altLabel("p")}</kbd> {t("key.preview")}
         </button>
         {error && <span className="sb-error">{error}</span>}
-        <button type="button" className="sb-key sb-send" disabled={!canSend} onClick={() => void submit()} title={selected?.delivery === "vscode" ? t("send.vscode.title") : undefined}>
-          {sending || (!c.captureId && !c.captureError) ? "…" : primaryLabel(selected)} <kbd>ctrl+⏎</kbd>
+        <button type="button" className="sb-key sb-send" disabled={!canSend} onClick={() => void submit()} title={selected?.delivery === "vscode" ? t("send.vscode.title", { paste: pasteKey() }) : undefined}>
+          {sending || (!c.captureId && !c.captureError) ? "…" : primaryLabel(selected)} <kbd>{sendLabel()}</kbd>
         </button>
       </div>
     </div>
@@ -741,7 +742,7 @@ function ChipCard({
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       void follow();
-    } else if (e.altKey && (e.key === "a" || e.key === "A")) {
+    } else if (isAlt(e, "a")) {
       e.preventDefault();
       onAttach();
     } else if (e.key === "Escape") {
@@ -816,7 +817,7 @@ function ChipCard({
         {d && (
           <>
             <button type="button" className="sb-key" onClick={onAttach} title={t("key.addFollow.title")}>
-              <kbd>alt+a</kbd> {t("key.add")}
+              <kbd>{altLabel("a")}</kbd> {t("key.add")}
             </button>
             <span className="sb-sep">·</span>
           </>
@@ -856,7 +857,7 @@ function ChipCard({
         {error && <span className="sb-error">{error}</span>}
         {d && (
           <button type="button" className="sb-key sb-send" disabled={!canFollow} onClick={() => void follow()}>
-            {sending ? "…" : t("follow")} <kbd>ctrl+⏎</kbd>
+            {sending ? "…" : t("follow")} <kbd>{sendLabel()}</kbd>
           </button>
         )}
       </div>

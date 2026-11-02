@@ -74,6 +74,12 @@ scripts/switchboard config     # 설정 보기 (값과 출처), config set <키>
 
 설정은 `~/.config/switchboard/config.json`(환경변수가 우선). 확장 쪽(데몬 주소, 자동 복원 사이트, 단축키)은 사이드 패널 `3 설정`.
 
+## 릴리즈로 설치
+
+[Releases](https://github.com/DongInSong/switchboard/releases)에서 `switchboard.mjs`(데몬·CLI 단일 파일, Node 24+)와 확장 zip을 받는다. zip을 풀어 `edge://extensions` → 개발자 모드 → 압축 풀린 확장 로드, 데몬은 `node switchboard.mjs start`, 연결은 `node switchboard.mjs pair`, 세션은 `node switchboard.mjs claude`.
+
+맥 단축키: Alt 대신 Option(`⌥⇧S` 선택 시작, `opt+a` …), 보내기 `⌘⏎`.
+
 ## Edge에 설치
 
 1. `pnpm ext:build`
