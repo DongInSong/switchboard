@@ -47,7 +47,8 @@ describe("native install", () => {
     expect(plan.manifests).toEqual([]);
     const w = plan.windows!;
     expect(w.cmd.path).toBe("/mnt/c/Users/me/AppData/Local/switchboard/native-host.cmd");
-    expect(w.cmd.content).toBe('@echo off\r\nwsl.exe -d "Ubuntu" --exec /bin/sh "/home/u/.local/share/switchboard/native-host.sh"\r\n');
+    // 따옴표 없이: wsl.exe는 -d "Ubuntu"의 따옴표를 이름으로 읽는다(실측)
+    expect(w.cmd.content).toBe("@echo off\r\nwsl.exe -d Ubuntu --exec /bin/sh /home/u/.local/share/switchboard/native-host.sh\r\n");
     expect(JSON.parse(w.manifest.content).path).toBe("C:\\Users\\me\\AppData\\Local\\switchboard\\native-host.cmd");
     expect(w.registry).toEqual([
       { key: `HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\${NATIVE_HOST_NAME}`, value: `C:\\Users\\me\\AppData\\Local\\switchboard\\${NATIVE_HOST_NAME}.json` },

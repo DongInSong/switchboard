@@ -103,6 +103,7 @@ export function planInstall(p: PlanInput): NativePlan {
   // WSL: 브라우저는 Windows에 있다 → Windows 쪽 .cmd가 wsl.exe로 launcher를 실행
   if (p.wsl && p.windows) {
     const w = p.windows;
+    if (!/^[\w.-]+$/.test(w.distro)) throw new Error(`unexpected WSL distro name: ${w.distro}`);
     const browsers = (p.browsers?.length ? p.browsers : ["edge", "chrome"]).filter((b) => WIN_REG[b]);
     const dirWsl = `${w.localAppDataWsl}/switchboard`;
     const dirWin = `${w.localAppDataWin}\\switchboard`;
@@ -112,7 +113,9 @@ export function planInstall(p: PlanInput): NativePlan {
       launcher,
       manifests: [],
       windows: {
-        cmd: { path: `${dirWsl}/native-host.cmd`, content: `@echo off\r\nwsl.exe -d "${w.distro}" --exec /bin/sh "${launcherPath}"\r\n` },
+        // wsl.exe는 명령줄을 직접 해석해서 -d "Ubuntu"처럼 따옴표를 붙이면 이름에 따옴표까지 들어가 WSL_E_DISTRO_NOT_FOUND(실측).
+        // 배포판 이름에는 공백이 없으니 그대로, 경로는 공백이 있을 때만 따옴표.
+        cmd: { path: `${dirWsl}/native-host.cmd`, content: `@echo off\r\nwsl.exe -d ${w.distro} --exec /bin/sh ${/\s/.test(launcherPath) ? `"${launcherPath}"` : launcherPath}\r\n` },
         manifest: { path: `${dirWsl}/${manifestName}`, content: hostManifest(cmdWin, ids) },
         manifestWinPath,
         registry: browsers.map((b) => ({ key: `${WIN_REG[b]}\\${NATIVE_HOST_NAME}`, value: manifestWinPath })),
