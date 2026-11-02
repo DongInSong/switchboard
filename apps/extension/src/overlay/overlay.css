@@ -43,6 +43,15 @@
   font: 13px/20px var(--sb-mono);
   color: var(--sb-fg);
   font-variant-ligatures: none;
+  /* 스크롤바·입력칸 기본색이 페이지의 color-scheme을 따라가지 않게 패널 테마로 고정(다크 사이트에서 스크롤바만 어두워지던 문제) */
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  .sb-root { color-scheme: dark; }
+}
+.sb-list, .sb-preview, .sb-reply, .sb-text, .sb-out-text, .md-code, .md-table {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-faint) transparent;
 }
 
 /* ---------------------------------------------------------------- 선택 도구 */

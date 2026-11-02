@@ -4,6 +4,13 @@
 
 브라우저에서 고칠 곳을 짚고 말하면, 그 일을 이미 알고 있는 Claude Code 세션으로 연결해 주는 교환대.
 
+![대상 두 개와 추천 세션이 있는 작성 팝업](docs/images/compose.png)
+
+<p>
+  <img src="docs/images/picking.png" alt="요소를 고르면 컴포넌트와 소스 파일이 보인다" width="49%">
+  <img src="docs/images/answer.png" alt="상태 칩에 Claude 전체 답변(마크다운)" width="49%">
+</p>
+
 테스트 중인 웹페이지에서 요소를 클릭하거나 영역을 드래그해 선택하고 수정 요청을 쓰면, Switchboard가 DOM·소스 위치·스크린샷을 모은다. 그다음 WSL tmux에서 돌고 있는 Claude Code 세션들의 작업 디렉터리, 최근 대화, 최근 수정 파일을 분석해 가장 맞는 세션을 추천하고, 사용자가 승인하면 그 세션에 요청을 넣어 준다.
 
 ## 이름
@@ -77,3 +84,7 @@ scripts/switchboard config     # 설정 보기 (값과 출처), config set <키>
 ## 상태
 
 P2 완료: 브라우저에서 짚고 쓴 요청이 추천된 Claude Code 세션의 입력칸에 들어가고, 완료되면 응답 요약이 칩에 뜬다. 다음은 P3(소스맵으로 정확한 줄 번호, ripgrep 폴백, LLM 재순위). 핵심 전달 경로(tmux 붙여넣기 → 제출 → 검증)는 실제 Claude Code v2.1.316 세션으로 확인했다. 준비 상태는 [ARCHITECTURE.md §12](docs/ARCHITECTURE.md#12-구현-준비-상태-2026-11-02)에 있다. 요구 환경: Node 24 LTS, pnpm, tmux ≥ 3.2, Claude Code (`claude agents --json` 지원 버전), WSL2 + Windows Edge(또는 Chromium 계열 브라우저).
+
+## 라이선스
+
+[MIT](LICENSE)

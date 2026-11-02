@@ -65,8 +65,17 @@ function submit() {
   render();
   setTimeout(() => {
     // 완료 로그가 전체 답변(마크다운 표 포함)을 그대로 보여 주는지 보려고 표와 마지막 줄을 붙인다
-    const head = `ok: received ${text.length} chars`;
-    const reply = [head, "", "| 파일 | 변경 |", "| --- | --- |", "| src/AvatarMenu.tsx | 드롭다운 위치 |", "| src/style.css | max-height 조정 |", "", "끝까지 보임"].join("\n");
+    const head = `Received ${text.length} chars.`;
+    const reply = [
+      "Kept the dropdown inside the viewport: it flips above the avatar when there isn't room below.",
+      "",
+      "| File | Change |",
+      "| --- | --- |",
+      "| src/AvatarMenu.tsx | flip + shift with floating-ui |",
+      "| src/style.css | max-height: calc(100vh - 64px) |",
+      "",
+      "Reload the page to check.",
+    ].join("\n");
     history.push(`● ${head}`);
     line({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: reply }] } });
     status = dialog ? "waiting" : "idle";

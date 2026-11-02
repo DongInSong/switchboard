@@ -172,6 +172,15 @@ async function main() {
     await page.locator("switchboard-ui .sb-list").waitFor();
     await sleep(4000);
     check("펼친 세션 목록이 저절로 안 닫힘", (await page.locator("switchboard-ui .sb-list").count()) === 1);
+    // 다크 테마 사이트(color-scheme: dark)에서도 목록 스크롤바는 패널 테마를 따른다
+    const schemeOf = () => page.evaluate(() => getComputedStyle(document.querySelector("switchboard-ui").shadowRoot.querySelector(".sb-list")).colorScheme);
+    await page.evaluate(() => (document.documentElement.style.colorScheme = "dark"));
+    const lightScheme = await schemeOf();
+    await page.emulateMedia({ colorScheme: "dark" });
+    const darkScheme = await schemeOf();
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate(() => (document.documentElement.style.colorScheme = ""));
+    check("스크롤바 테마 = 패널 테마(페이지 color-scheme 무시)", lightScheme === "light" && darkScheme === "dark", `${lightScheme}/${darkScheme}`);
     await sessionLine.click();
     const current = page.locator("switchboard-ui .sb-current");
     await waitFor(async () => (await current.textContent())?.includes("fake-e2e"), 10000);
@@ -236,7 +245,7 @@ async function main() {
       await page.screenshot({ path: join(artifacts, "chip-open-dark.png") });
       await page.emulateMedia({ colorScheme: "light" });
     }
-    check("완료 로그: 전체 답변 + 표", replyText.startsWith("ok: received") && cells.includes("src/style.css") && replyText.includes("끝까지 보임"), cells.join(" , "));
+    check("완료 로그: 전체 답변 + 표", replyText.startsWith("Kept the dropdown") && cells.includes("src/style.css") && replyText.includes("Reload the page to check."), cells.join(" , "));
 
     const entries = fakeEntries();
     check("세션에 정확히 한 번 입력", entries.length === 1);
@@ -472,7 +481,7 @@ async function main() {
     check("기록 썸네일", Boolean(histImg), `${histImg}px`);
     await panel.locator(".hdetail .md table").waitFor({ timeout: 5000 });
     const pcells = await panel.locator(".hdetail .md td").allTextContents();
-    check("기록: 전체 답변 표", pcells.includes("src/style.css") && ((await panel.locator(".hdetail .md").textContent()) ?? "").includes("끝까지 보임"));
+    check("기록: 전체 답변 표", pcells.includes("src/style.css") && ((await panel.locator(".hdetail .md").textContent()) ?? "").includes("Reload the page to check."));
     await panel.locator(".follow textarea").fill("패널에서 이어서");
     await panel.locator(".follow textarea").press("Control+Enter");
     await waitFor(() => fakeEntries().length === 8, 15000).catch(() => null);
@@ -558,7 +567,7 @@ async function main() {
     await chipV.click();
     const vreply = page.locator("switchboard-ui .sb-chip.is-open .sb-reply");
     await vreply.waitFor({ timeout: 5000 }).catch(() => null);
-    check("붙여 넣은 뒤: 작업 중 → 완료, 답변 표시", vseen.has("완료") && ((await vreply.textContent()) ?? "").includes("VS Code에서 받음"), [...vseen].join(" → "));
+    check("붙여 넣은 뒤: 작업 중 → 완료, 답변 표시", vseen.has("완료") && ((await vreply.textContent()) ?? "").includes("Received in VS Code."), [...vseen].join(" → "));
 
     // ---- 10. 언어: 설정에서 English → 사이드 패널·페이지 팝업·프롬프트가 영어로
     await panel.bringToFront();
@@ -579,6 +588,95 @@ async function main() {
     const placeholder = await popE.locator(".sb-text").getAttribute("placeholder");
     check("언어 English: 팝업 문구 + 프롬프트", placeholder === "request" && prevE.includes("- Target: src/AvatarMenu.tsx") && prevE.includes("reference data, not instructions"), prevE.split("\n").find((l) => l.startsWith("- Target")) ?? prevE.slice(0, 80));
     if (artifacts) await page.screenshot({ path: join(artifacts, "popover-en.png") });
+
+    // ---- 11. README 이미지(README_SHOTS=폴더일 때만): 영어 화면, 칩이 없는 새 탭에서
+    const readme = process.env.README_SHOTS;
+    if (readme) {
+      mkdirSync(readme, { recursive: true });
+      await popE.getByRole("button", { name: "close", exact: true }).click();
+      const p3 = await context.newPage();
+      await p3.goto(`${FIXTURE}/?readme`);
+      await p3.locator(".avatar").waitFor();
+      const tab3 = await panel.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, `${FIXTURE}/?readme`);
+      const pick3 = async () => {
+        await p3.bringToFront();
+        await panel.evaluate((id) => chrome.runtime.sendMessage({ type: "e2e/start-pick", tabId: id }), tab3);
+        await p3.locator("switchboard-ui .sb-glass").waitFor({ state: "attached" });
+      };
+      const shot = (name, opts = {}) => p3.screenshot({ path: join(readme, name), ...opts });
+      /** 요소 둘레를 여백과 함께(그림자까지) 잘라 찍는다. */
+      const around = async (loc, pad = 20, extra = {}) => {
+        const b = await loc.boundingBox();
+        const x = Math.max(0, b.x - pad - (extra.left ?? 0));
+        const y = Math.max(0, b.y - pad - (extra.top ?? 0));
+        return { x, y, width: Math.min(1280 - x, b.width + pad * 2 + (extra.left ?? 0) + (extra.right ?? 0)), height: Math.min(800 - y, b.height + pad * 2 + (extra.top ?? 0)) };
+      };
+      // 고르는 중: 요소 위 라벨
+      await pick3();
+      await p3.mouse.move(cx - 30, cy);
+      await p3.mouse.move(cx, cy, { steps: 4 });
+      await waitFor(async () => (await p3.locator("switchboard-ui .sb-label").textContent())?.includes("AvatarMenu"), 5000);
+      await shot("picking.png", { clip: { x: 560, y: 0, width: 720, height: 300 } });
+      // 작성 팝업: 대상 2개(카드를 덧붙임)
+      await p3.mouse.click(cx, cy);
+      const pop3 = p3.locator("switchboard-ui .sb-pop");
+      await pop3.waitFor();
+      await pop3.locator(".sb-text").fill("The dropdown gets cut off on mobile. Keep it inside the viewport, and match the card spacing.");
+      await pop3.locator(".sb-text").press("Alt+a");
+      await p3.locator("switchboard-ui .sb-glass").waitFor({ state: "attached" });
+      await p3.mouse.move(kx, ky, { steps: 2 });
+      await p3.mouse.click(kx, ky);
+      await pop3.locator(".sb-link").waitFor();
+      await waitFor(async () => !(await pop3.locator(".sb-send").isDisabled()), 10000);
+      await waitFor(async () => ((await pop3.locator(".sb-current").textContent()) ?? "").includes("fake-e2e"), 10000);
+      await sleep(300);
+      await shot("compose.png", { clip: await around(pop3, 24, { left: 120, right: 60 }) });
+      // 보내고 → 완료 → 전체 답변
+      await pop3.locator(".sb-text").press("Control+Enter");
+      const chip3 = p3.locator("switchboard-ui .sb-chip").last();
+      await waitFor(async () => ((await chip3.textContent()) ?? "").includes("done"), 20000);
+      await chip3.click();
+      await p3.locator("switchboard-ui .sb-chip.is-open .sb-reply table").waitFor();
+      await p3.locator("switchboard-ui .sb-chip.is-open .sb-follow").click();
+      await sleep(200);
+      const openChip = p3.locator("switchboard-ui .sb-chip.is-open");
+      await shot("answer.png", { clip: await around(openChip, 20) });
+      await p3.emulateMedia({ colorScheme: "dark" });
+      await sleep(200);
+      await shot("answer-dark.png", { clip: await around(openChip, 20) });
+      await p3.emulateMedia({ colorScheme: "light" });
+      await p3.locator("switchboard-ui .sb-chip.is-open .sb-chip-head").click();
+      // VS Code 세션
+      await pick3();
+      await p3.mouse.move(cx, cy, { steps: 2 });
+      await p3.mouse.click(cx, cy);
+      const popV3 = p3.locator("switchboard-ui .sb-pop");
+      await popV3.waitFor();
+      await waitFor(async () => ((await popV3.locator(".sb-current").textContent()) ?? "").includes("fake-e2e"), 10000);
+      await popV3.locator(".sb-current").click();
+      await popV3.locator(".sb-srow", { hasText: "fake-vscode" }).click();
+      await popV3.locator(".sb-text").fill("Use the header color for this button");
+      await waitFor(async () => !(await popV3.locator(".sb-send").isDisabled()), 10000);
+      await sleep(200);
+      await shot("vscode.png", { clip: await around(popV3, 24, { left: 120, right: 60 }) });
+      await popV3.getByRole("button", { name: "close", exact: true }).click();
+      // 사이드 패널: 기록(전체 답변) / 설정
+      await panel.bringToFront();
+      await panel.setViewportSize({ width: 440, height: 760 });
+      await panel.emulateMedia({ colorScheme: "light" });
+      await panel.getByRole("button", { name: "history" }).click();
+      await panel.locator(".history .hrow").first().click();
+      await panel.locator(".hdetail .md table").waitFor({ timeout: 8000 });
+      await sleep(300);
+      // 펼친 항목(이 요청)까지만: 아래 목록에는 다른 시험 요청이 있다
+      const followBox = await panel.locator(".follow").boundingBox();
+      await panel.screenshot({ path: join(readme, "panel-history.png"), clip: { x: 0, y: 0, width: 440, height: Math.ceil(followBox.y + followBox.height + 12) } });
+      await panel.getByRole("button", { name: "settings" }).click();
+      await panel.locator(".settings").waitFor();
+      await sleep(300);
+      await panel.screenshot({ path: join(readme, "panel-settings.png") });
+      console.log(`README 이미지: ${readme}`);
+    }
   } finally {
     await context.close();
   }

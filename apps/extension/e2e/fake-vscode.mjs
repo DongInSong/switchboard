@@ -42,7 +42,7 @@ watchFile(control, { interval: 100 }, () => {
   status = "busy";
   publish();
   setTimeout(() => {
-    const reply = ["VS Code에서 받음", "", "| 파일 | 변경 |", "| --- | --- |", "| src/App.tsx | 버튼 색 |"].join("\n");
+    const reply = ["Received in VS Code.", "", "| File | Change |", "| --- | --- |", "| src/Card.tsx | button color from the header token |"].join("\n");
     line({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: reply }] } });
     status = "idle";
     publish();

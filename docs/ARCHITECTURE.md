@@ -503,3 +503,9 @@ React 19 줄 번호는 react-refresh가 파일 앞에 줄을 끼워 넣어 3줄 
 - 테스트: 기존 테스트는 한국어 문구로 쓰여 있어 vitest `env.SWITCHBOARD_LANG=ko`로 고정하고 영어는 따로 검사. E2E는 브라우저 locale `ko-KR`로 돌리고 마지막에 설정에서 English로 바꿔 사이드 패널·팝업·프롬프트를 확인.
 - 시험 페이지(fixture) 문구는 영어로 바꿨다. README는 영어(`README.md`) + 한국어(`README.ko.md`), docs/는 아직 한국어.
 
+### 다크 모드 스크롤바 · 라이선스 · README 이미지 (2026-11-02)
+
+- 사용자 지적: 브라우저 다크 모드에서 세션 목록 스크롤바만 어두워짐. 원인은 오버레이에 `color-scheme`이 없어 스크롤바·폼 기본색이 페이지의 `color-scheme`을 따라간 것(다크 테마 사이트면 밝은 팝업 안에 어두운 스크롤바). `.sb-root`에 `color-scheme: light`(다크 미디어에서 `dark`)를 박고 스크롤 영역에 `scrollbar-color`를 토큰으로. E2E가 페이지에 `color-scheme: dark`를 넣고 목록의 computed color-scheme이 패널 테마를 따르는지 확인.
+- MIT 라이선스(`LICENSE`, 각 package.json `license`).
+- README 이미지(`docs/images/`)는 E2E가 영어 화면으로 찍는다: `README_SHOTS=docs/images pnpm e2e`(칩이 없는 새 탭에서 고르기·작성·답변·VS Code·사이드 패널). 가짜 Claude 답변도 영어 예시로 바꿨다.
+

@@ -2,6 +2,7 @@
   "name": "@switchboard/fixture",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5199 --strictPort --host 127.0.0.1"

@@ -4,10 +4,17 @@ English · [한국어](README.ko.md)
 
 Point at something in your browser, say what to change, and Switchboard hands it to the Claude Code session that already knows that code.
 
+![Compose popover with two targets and the suggested session](docs/images/compose.png)
+
 1. In the page you're working on, press `Alt+Shift+S` and click an element (or drag a region).
 2. Write the request. Switchboard collects the DOM, the source location (React, Vue, Svelte), and a screenshot.
 3. It ranks your running Claude Code sessions (source file, dev server folder, recent edits, topic) and picks the best one.
 4. You approve. The request lands in that session's input box, as if you typed it. A chip tracks it until Claude is done, and shows the full answer.
+
+<p>
+  <img src="docs/images/picking.png" alt="Picking an element shows its component and source file" width="49%">
+  <img src="docs/images/answer.png" alt="Status chip with Claude's full answer, rendered as Markdown" width="49%">
+</p>
 
 Nothing leaves your machine except what Claude Code itself sends. The daemon only listens on `127.0.0.1`.
 
@@ -38,6 +45,8 @@ Your existing Claude Code sessions
 | VS Code extension | yes (`VS Code` tag) | copies the prompt and brings up that session's tab; you press `ctrl+v`, `enter`. Tracking and answers work the same |
 | Background agents | yes | view only |
 | Claude desktop app | no | no supported way in |
+
+![A VS Code session selected: the button becomes Copy](docs/images/vscode.png)
 
 Plain terminals can't be typed into from outside (TIOCSTI is off on modern kernels, and Windows Terminal has no API for it). tmux can, which is why `switchboard claude` exists: it starts Claude Code inside a tmux session named after the folder and passes your arguments through.
 
@@ -79,6 +88,11 @@ scripts/switchboard claude            # start Claude Code inside tmux (args go t
 
 Side panel: `1 sessions` · `2 history` (full answers, follow-ups) · `3 settings` (daemon address, auto-restore sites, language, shortcut).
 
+<p>
+  <img src="docs/images/panel-history.png" alt="Side panel history with the full answer and a follow-up box" width="44%">
+  <img src="docs/images/answer-dark.png" alt="Dark theme" width="54%">
+</p>
+
 ## Configure
 
 ```bash
@@ -110,4 +124,10 @@ pnpm e2e       # headless Chromium end to end, with a fake Claude session on an 
 pnpm fixture   # test page on http://127.0.0.1:5199
 ```
 
+README images are taken by the same E2E run: `README_SHOTS=docs/images pnpm e2e`.
+
 Design notes (Korean): [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/UX.md](docs/UX.md), [docs/TECH-STACK.md](docs/TECH-STACK.md), [docs/RESEARCH.md](docs/RESEARCH.md).
+
+## License
+
+[MIT](LICENSE)

@@ -149,3 +149,6 @@ input.field { flex: 1; min-width: 14ch; width: auto; letter-spacing: 0; }
 .seg .btn:first-child { border-radius: 4px 0 0 4px; margin-left: 0; }
 .seg .btn:last-child { border-radius: 0 4px 4px 0; }
 .seg .btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); position: relative; z-index: 1; }
+
+/* 스크롤바도 패널 색으로 */
+* { scrollbar-width: thin; scrollbar-color: var(--faint) transparent; }
