@@ -76,7 +76,15 @@ scripts/switchboard config     # 설정 보기 (값과 출처), config set <키>
 
 ## 릴리즈로 설치
 
-[Releases](https://github.com/DongInSong/switchboard/releases)에서 `switchboard.mjs`(데몬·CLI 단일 파일, Node 24+)와 확장 zip을 받는다. zip을 풀어 `edge://extensions` → 개발자 모드 → 압축 풀린 확장 로드, 데몬은 `node switchboard.mjs start`, 연결은 `node switchboard.mjs pair`, 세션은 `node switchboard.mjs claude`.
+[Releases](https://github.com/DongInSong/switchboard/releases)에서 `switchboard.mjs`(데몬·CLI 단일 파일, Node 24+)와 확장 zip을 받는다. zip을 풀어 `edge://extensions` → 개발자 모드 → 압축 풀린 확장 로드.
+
+```bash
+node switchboard.mjs native install          # 등록할 내용 미리보기
+node switchboard.mjs native install --apply  # 브라우저가 Switchboard를 직접 띄우게 등록
+node switchboard.mjs claude                  # tmux 안에서 Claude Code 실행
+```
+
+확장을 새로고침하면 끝. 확장이 필요할 때 브라우저가 호스트를 띄우고, 호스트가 데몬을 백그라운드로 켠다(데몬 켜 두기·페어링 불필요). 끄기는 `node switchboard.mjs stop`, 등록 해제는 `native uninstall --apply`. 등록하지 않으면 예전처럼 `node switchboard.mjs start` + `node switchboard.mjs pair`.
 
 맥 단축키: Alt 대신 Option(`⌥⇧S` 선택 시작, `opt+a` …), 보내기 `⌘⏎`.
 

@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { EXTENSION_ID, NATIVE_HOST_NAME } from "../../../packages/protocol/src/native.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../../..");
@@ -570,6 +571,53 @@ async function main() {
     await vreply.waitFor({ timeout: 5000 }).catch(() => null);
     check("붙여 넣은 뒤: 작업 중 → 완료, 답변 표시", vseen.has("완료") && ((await vreply.textContent()) ?? "").includes("Received in VS Code."), [...vseen].join(" → "));
 
+    // ---- 9b. Native Messaging: 데몬을 끄고 HTTP 경로(토큰·주소)도 막은 뒤, 브라우저가 호스트를 띄워 데몬을 켜고 페어링 없이 보내는지
+    check("확장 ID 고정(manifest key)", extId === EXTENSION_ID, extId);
+    const launcher = join(tmp, "native-host.sh");
+    const keep = ["PATH", "SWITCHBOARD_STATE_DIR", "SWITCHBOARD_DATA_DIR", "SWITCHBOARD_PORT", "SWITCHBOARD_AGENTS_FILE", "SWITCHBOARD_TMUX_SOCKET", "SWITCHBOARD_CONFIG", "SWITCHBOARD_OPEN_COMMAND", "CLAUDE_CONFIG_DIR"];
+    writeFileSync(launcher, `#!/bin/sh\n${keep.map((k) => `export ${k}='${env[k]}'`).join("\n")}\nexec '${process.execPath}' '${cli}' native-host\n`, { mode: 0o755 });
+    // --user-data-dir를 쓰면 Chromium은 그 안의 NativeMessagingHosts에서 찾는다(사용자 실제 브라우저 설정은 건드리지 않음)
+    mkdirSync(join(tmp, "profile", "NativeMessagingHosts"), { recursive: true });
+    writeFileSync(
+      join(tmp, "profile", "NativeMessagingHosts", `${NATIVE_HOST_NAME}.json`),
+      JSON.stringify({ name: NATIVE_HOST_NAME, description: "Switchboard e2e host", path: launcher, type: "stdio", allowed_origins: [`chrome-extension://${extId}/`] }),
+    );
+    daemon.kill("SIGINT");
+    await waitFor(() => fetch(`http://127.0.0.1:${PORT}/v1/health`).then(() => false, () => true), 10000);
+    await panel.evaluate(async () => {
+      await chrome.storage.local.set({ "sb:base": "http://127.0.0.1:1" });
+      await chrome.storage.local.remove("sb:token");
+    });
+    await panel.bringToFront();
+    await panel.reload();
+    await panel.getByRole("button", { name: "설정" }).click();
+    const nat = await waitFor(async () => {
+      const t = (await panel.locator(".settings .line").first().textContent()) ?? "";
+      return t.includes("연결됨") && t.includes("네이티브") ? t : null;
+    }, 30000, 500).catch(async () => (await panel.locator(".settings .line").first().textContent()) ?? "");
+    check("Native: HTTP 막힌 채로 브라우저가 호스트→데몬을 켜고 페어링 없이 연결", nat.includes("네이티브"), nat.trim());
+    check("Native: 데몬 자동 시작(pid 파일)", existsSync(join(tmp, "state", "daemon.pid")));
+    await page.bringToFront();
+    await startPick();
+    await page.mouse.move(cx, cy, { steps: 2 });
+    await page.mouse.click(cx, cy);
+    const popN = page.locator("switchboard-ui .sb-pop");
+    await popN.waitFor();
+    await waitFor(async () => ((await popN.locator(".sb-current").textContent()) ?? "").includes("fake-e2e"), 15000);
+    await popN.locator(".sb-text").fill("네이티브로 보냄");
+    await waitFor(async () => !(await popN.locator(".sb-send").isDisabled()), 10000);
+    const nBefore = fakeEntries().length;
+    await popN.locator(".sb-text").press("Control+Enter");
+    await waitFor(() => fakeEntries().length === nBefore + 1, 15000).catch(() => null);
+    const nText = fakeEntries().at(-1)?.text ?? "";
+    check("Native: 스크린샷 업로드(multipart)·요청·tmux 전달", /^\[switchboard #\d+\] 네이티브로 보냄/.test(nText) && nText.includes("element.png"), nText.split("\n")[0]);
+    await panel.bringToFront();
+    await panel.getByRole("button", { name: "기록" }).click();
+    await panel.locator(".history .hrow").first().click();
+    const nImg = await waitFor(() => panel.evaluate(() => document.querySelector(".hshot")?.naturalWidth || null), 8000).catch(() => null);
+    check("Native: 기록 썸네일(바이너리 응답)", Boolean(nImg), `${nImg}px`);
+    await panel.getByRole("button", { name: "세션" }).click();
+
     // ---- 10. 언어: 설정에서 English → 사이드 패널·페이지 팝업·프롬프트가 영어로
     await panel.bringToFront();
     await panel.getByRole("button", { name: "설정" }).click();
@@ -690,6 +738,11 @@ try {
   console.error("FAIL ", e?.stack ?? e);
 } finally {
   for (const c of children) c.kill("SIGINT");
+  // 호스트가 켠 데몬(분리된 프로세스)도 끈다
+  try {
+    const pid = Number(readFileSync(join(tmp, "state", "daemon.pid"), "utf8"));
+    if (pid > 0) process.kill(pid, "SIGINT");
+  } catch {}
   try {
     tmux("kill-server");
   } catch {}

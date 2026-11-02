@@ -69,6 +69,17 @@ const ko = {
   "pair.revoked": "연결 해제: 확장 {n}개",
   "pair.enterWithin": "{secs}초 안에 확장에 입력",
   "pair.daemonOff": "데몬이 꺼져 있음: switchboard start",
+  "native.usage": "사용법: switchboard native install|uninstall|status [--apply] [--browser edge|chrome|chromium|brave]",
+  "native.noWindows": "Windows %LOCALAPPDATA%를 찾지 못함 (WSL interop 꺼짐?)",
+  "native.preview": "미리보기 — 적용하려면 --apply",
+  "native.write": "쓰기",
+  "native.registry": "레지스트리",
+  "native.applied": "등록함. 확장을 새로고침하면 데몬을 켜 두거나 페어링할 필요가 없음",
+  "native.removed": "지움",
+  "native.installed": "등록됨 (브라우저가 직접 띄움)",
+  "native.notInstalled": "등록 안 됨 (선택: switchboard native install --apply)",
+  "stop.stopped": "데몬 종료함 (pid {pid})",
+  "stop.notRunning": "실행 중인 데몬 없음",
   "dsp.restart": "데몬 재시작으로 확인 못 함",
   "dsp.notDispatchable": "보낼 수 없는 세션(tmux 밖이거나 백그라운드)",
   "dsp.paneMismatch": "tmux pane이 세션과 맞지 않음",
@@ -156,6 +167,17 @@ const en: Record<Key, string> = {
   "pair.revoked": "unpaired: {n} extensions",
   "pair.enterWithin": "enter it in the extension within {secs}s",
   "pair.daemonOff": "daemon is not running: switchboard start",
+  "native.usage": "usage: switchboard native install|uninstall|status [--apply] [--browser edge|chrome|chromium|brave]",
+  "native.noWindows": "couldn't find Windows %LOCALAPPDATA% (is WSL interop off?)",
+  "native.preview": "preview — run with --apply to write",
+  "native.write": "write",
+  "native.registry": "registry",
+  "native.applied": "registered. Reload the extension; no need to keep the daemon running or pair anymore",
+  "native.removed": "removed",
+  "native.installed": "installed (the browser starts it)",
+  "native.notInstalled": "not installed (optional: switchboard native install --apply)",
+  "stop.stopped": "stopped the daemon (pid {pid})",
+  "stop.notRunning": "no daemon running",
   "dsp.restart": "unverified after daemon restart",
   "dsp.notDispatchable": "can't send to this session (outside tmux or background)",
   "dsp.paneMismatch": "tmux pane doesn't match the session",
@@ -207,6 +229,8 @@ export const HELP: Record<Lang, (version: string) => string> = {
 usage:
   switchboard claude [claude args…]         run Claude Code inside tmux (so Switchboard can send to it)
   switchboard start [--port N]              run the daemon (foreground, Ctrl+C to stop)
+  switchboard native install [--apply]      let the browser start Switchboard itself (no daemon to keep running, no pairing)
+  switchboard stop                          stop a daemon running in the background
   switchboard pair [--reset]                show a pairing code for the extension / unpair all
   switchboard status                        daemon status
   switchboard requests [--json]             recent requests and delivery state
@@ -231,6 +255,8 @@ precedence: environment variables > config file (~/.config/switchboard/config.js
 사용법:
   switchboard claude [claude 인자…]         Claude Code를 tmux 안에서 실행 (Switchboard가 보낼 수 있게)
   switchboard start [--port N]              데몬 실행 (포그라운드, Ctrl+C로 종료)
+  switchboard native install [--apply]      브라우저가 Switchboard를 직접 띄우게 등록 (데몬 켜 두기·페어링 불필요)
+  switchboard stop                          백그라운드 데몬 끄기
   switchboard pair [--reset]                확장 연결 코드 발급 / 모든 연결 해제
   switchboard status                        데몬 상태
   switchboard requests [--json]             최근 요청과 전달 상태

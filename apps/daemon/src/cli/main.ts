@@ -6,6 +6,7 @@ import { SettingsError, loadSettings, requireSettings } from "../settings.ts";
 import { config } from "./config.ts";
 import { renderChecks, runChecks } from "./doctor.ts";
 import { launchClaude } from "./launch.ts";
+import { native, nativeHost, nativeSummary, stop } from "./native.ts";
 import { renderSessionTable, styleFor } from "./format.ts";
 import { listRequests, send } from "./requests.ts";
 import { clean, pair, start, status } from "./serve.ts";
@@ -44,6 +45,7 @@ async function doctor(): Promise<number> {
   const checks = await runChecks(requireSettings());
   const loaded = loadSettings();
   const custom = loaded.entries.filter((e) => e.source !== "default").map((e) => e.def.key);
+  checks.push({ name: "native host", ok: true, detail: nativeSummary() });
   checks.push({
     name: "config",
     ok: true,
@@ -69,12 +71,17 @@ async function run(argv: string[]): Promise<number> {
   if (loaded.settings) setLang(loaded.settings.language);
   // claude 뒤 인자는 전부 claude에 넘긴다(--resume 등). 옵션 파싱 전에 가른다.
   if (argv[0] === "claude") return launchClaude(argv.slice(1), requireSettings());
+  // 브라우저가 띄우는 호스트: 브라우저가 넘기는 인자(확장 주소 등)는 무시하고, stdout은 메시지 전용
+  if (argv[0] === "native-host") return nativeHost(requireSettings());
   const { values, positionals } = parseArgs({
     args: argv,
     allowPositionals: true,
     options: {
       json: { type: "boolean", default: false },
       all: { type: "boolean", default: false },
+      apply: { type: "boolean", default: false },
+      browser: { type: "string", multiple: true },
+      "extension-id": { type: "string", multiple: true },
       watch: { type: "boolean", default: false },
       reset: { type: "boolean", default: false },
       port: { type: "string" },
@@ -122,6 +129,10 @@ async function run(argv: string[]): Promise<number> {
       return sessions({ json: values.json, watch: values.watch });
     case "doctor":
       return doctor();
+    case "native":
+      return native(positionals.slice(1), { apply: values.apply, browsers: values.browser ?? [], extensionIds: values["extension-id"] ?? [] }, style);
+    case "stop":
+      return stop();
     case "config":
       return config(positionals.slice(1), { json: values.json, all: values.all, ...(port !== undefined ? { port } : {}) }, style);
     case "clean": {

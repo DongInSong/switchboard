@@ -265,7 +265,7 @@ function Settings({ onBaseChanged }: { onBaseChanged(): void }) {
   const required = useMemo(() => browser.runtime.getManifest().host_permissions ?? [], []);
   const [base, setBase] = useState(DEFAULT_BASE);
   const [draft, setDraft] = useState("");
-  const [baseState, setBaseState] = useState<{ tone: string; text: string } | null>(null);
+  const [baseState, setBaseState] = useState<{ tone: string; text: string; title?: string | undefined } | null>(null);
   const [granted, setGranted] = useState<string[]>([]);
   const [site, setSite] = useState("");
   const [siteError, setSiteError] = useState<string | null>(null);
@@ -290,7 +290,11 @@ function Settings({ onBaseChanged }: { onBaseChanged(): void }) {
   const check = useCallback(async () => {
     const res = await send({ type: "daemon/status" });
     const key = res.ok ? (res.data.paired ? "ok" : "unpaired") : "disconnected";
-    setBaseState({ tone: key === "ok" ? "ok" : key === "unpaired" ? "off" : "fail", text: `● ${t(STATUS_KEY[key])}${res.ok ? ` v${res.data.version}` : ""}` });
+    setBaseState({
+      tone: key === "ok" ? "ok" : key === "unpaired" ? "off" : "fail",
+      text: `● ${t(STATUS_KEY[key])}${res.ok ? ` v${res.data.version} · ${t(res.data.transport === "native" ? "transport.native" : "transport.http")}` : ""}`,
+      title: res.ok ? t(res.data.transport === "native" ? "transport.native.title" : "transport.http.title") : undefined,
+    });
   }, []);
   useEffect(() => {
     void browser.storage.local.get("sb:base").then((s) => {
@@ -300,7 +304,10 @@ function Settings({ onBaseChanged }: { onBaseChanged(): void }) {
     });
     void refreshGranted();
     void check();
+    // 데몬이 막 뜨는 중이거나 통로(네이티브/HTTP)가 바뀌면 따라가게
+    const timer = setInterval(() => void check(), 3000);
     void browser.commands.getAll().then((cmds) => setShortcut(cmds.find((c) => c.name === "start-pick")?.shortcut || ""));
+    return () => clearInterval(timer);
   }, [refreshGranted, check]);
 
   const applyBase = async () => {
@@ -351,7 +358,11 @@ function Settings({ onBaseChanged }: { onBaseChanged(): void }) {
         <span className="strong" title={t("set.daemon.title")}>
           {t("set.daemon")}
         </span>
-        {baseState && <span className={`tone-${baseState.tone}`}>{baseState.text}</span>}
+        {baseState && (
+          <span className={`tone-${baseState.tone}`} title={baseState.title}>
+            {baseState.text}
+          </span>
+        )}
       </div>
       <form
         className="line indent"

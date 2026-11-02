@@ -39,7 +39,7 @@ export type ResponseOf<R extends Request> = R extends { type: "capture/shoot" }
   : R extends { type: "capture/upload" }
     ? Result<{ captureId: string; recommendations: Recommendation[] }>
     : R extends { type: "daemon/status" }
-      ? Result<{ paired: boolean; version: string }>
+      ? Result<{ paired: boolean; version: string; transport: "native" | "http" }>
       : R extends { type: "daemon/sessions" }
         ? Result<SessionSnapshot>
         : R extends { type: "daemon/pair" }

@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { serve } from "@hono/node-server";
 import type { Dispatch } from "@switchboard/protocol";
@@ -122,6 +123,8 @@ export async function start(opts: { port?: number }, style: Style): Promise<numb
   registry.start();
   await registry.refresh().catch(() => undefined);
   dispatcher.resume();
+  mkdirSync(paths.stateDir, { recursive: true });
+  writeFileSync(paths.pidFile, `${process.pid}\n`);
 
   // 보관 기간이 지난 캡처 정리: 시작할 때 한 번, 그 뒤 6시간마다.
   const policy = settings.retention;
@@ -149,6 +152,7 @@ export async function start(opts: { port?: number }, style: Style): Promise<numb
     process.once("SIGTERM", resolve);
   });
   clearInterval(sweepTimer);
+  rmSync(paths.pidFile, { force: true });
   dispatcher.stop();
   registry.stop();
   await new Promise<void>((resolve) => server.close(() => resolve()));

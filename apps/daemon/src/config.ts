@@ -15,6 +15,8 @@ export type Paths = {
   pairFile: string;
   /** CLI(`switchboard send` 등)가 데몬을 부를 때 쓰는 토큰. 0600. */
   cliTokenFile: string;
+  /** 실행 중인 데몬 pid(`switchboard stop`, 호스트가 켠 데몬 끄기). */
+  pidFile: string;
 };
 
 export function pathsFrom(stateDir: string, dataDir: string): Paths {
@@ -26,6 +28,7 @@ export function pathsFrom(stateDir: string, dataDir: string): Paths {
     tokensFile: join(stateDir, "tokens.json"),
     pairFile: join(stateDir, "pair-code.json"),
     cliTokenFile: join(stateDir, "cli-token"),
+    pidFile: join(stateDir, "daemon.pid"),
   };
 }
 

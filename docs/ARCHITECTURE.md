@@ -514,3 +514,13 @@ React 19 줄 번호는 react-refresh가 파일 앞에 줄을 끼워 넣어 3줄 
 - https://github.com/DongInSong/switchboard/releases/tag/v0.1.0 — `switchboard.mjs`(데몬·CLI 단일 파일, `scripts/build-daemon.mjs`가 rolldown으로 묶음, Node 24+만 필요), `switchboard-0.1.0-{edge,chrome}.zip`(WXT `zip.artifactTemplate`), `SHA256SUMS.txt`. E2E를 단일 파일 데몬으로도 돌려 통과(`E2E_CLI=dist/switchboard.mjs`).
 - 맥 단축키: Option+글자가 å·π 같은 다른 글자로 들어와 `e.key` 비교가 안 됨 → `src/keys.ts`가 글자 또는 물리 키(`e.code`)로 맞춘다. 키 힌트·붙여넣기 안내도 맥이면 `opt`/`cmd`.
 
+### Native Messaging (2026-11-02, 사용자 결정: "중계 서버 없이")
+
+- 확장 → `chrome.runtime.connectNative("com.github.donginsong.switchboard")` → 브라우저가 호스트(`switchboard native-host`)를 띄움 → 호스트가 데몬이 꺼져 있으면 백그라운드로 켜고(`detached`, 로그 `state/daemon.log`, pid `state/daemon.pid`) CLI 토큰으로 요청을 전달. 데몬(엔진)은 그대로라 브라우저를 닫아도 대기열·추적이 계속된다. 확장은 페어링이 필요 없다.
+- 틀: 4바이트 길이(LE)+JSON. 호스트→확장 1MB 한도라 응답은 조각(`{id, part, parts, data}`, 20만 자)으로. 확장→호스트는 64MB라 multipart 업로드는 base64로 그대로.
+- 확장은 네이티브 먼저, 안 되면 HTTP(+페어링)로. 호스트가 없으면 곧바로 끊기므로 5초 쉬었다 재시도. 열린 포트가 서비스 워커를 깨워 두므로 30초 무요청이면 닫는다(호스트만 끝남).
+- 확장 ID 고정: manifest `key`(공개 키, `packages/protocol/src/native.ts`) → ID `fpmdebikcimghncoobpmccpagblaibig`. 호스트 매니페스트 `allowed_origins`는 이 ID만(+`--extension-id`).
+- `switchboard native install [--apply] [--browser …]`: 기본은 미리보기. 실행 스크립트(`data/native-host.sh`, 0700)에 지금 셸의 PATH·LANG·CLAUDE_CONFIG_DIR·XDG_*·SWITCHBOARD_*만 담는다(비밀 값 제외) — 브라우저는 셸 설정 없이 호스트를 띄우기 때문. Linux·macOS는 브라우저별 `NativeMessagingHosts` 폴더, WSL이면 Windows 쪽 `%LOCALAPPDATA%\switchboard\{native-host.cmd, manifest}` + `reg.exe`로 Edge·Chrome 레지스트리(`HKCU\Software\…\NativeMessagingHosts\<name>`). `.cmd`는 `wsl.exe -d <배포판> --exec /bin/sh <실행 스크립트>`.
+- 실측: Windows `cmd.exe /d /c` → `wsl.exe` → node 호스트로 길이 접두 바이너리가 깨지지 않고 오감(hello + 세션 목록 37KB 응답). `switchboard stop`(pid 파일), `native status`, `doctor`에 등록 상태.
+- E2E: 데몬을 끄고 확장의 토큰·주소를 지워 HTTP를 막은 뒤, 프로필의 `NativeMessagingHosts`(`--user-data-dir` 안이라 실제 브라우저 설정은 안 건드림)에 등록 → 설정 탭 `● 연결됨 · 네이티브`, 데몬 자동 시작, 업로드·전달·썸네일(바이너리).
+

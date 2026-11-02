@@ -118,6 +118,10 @@ const ko = {
   "tab.settings": "설정",
   "addr": "주소",
   "addr.title": "데몬 주소 바꾸기",
+  "transport.native": "네이티브",
+  "transport.http": "HTTP",
+  "transport.native.title": "브라우저가 Switchboard를 직접 띄움(데몬 켜 두기·페어링 불필요)",
+  "transport.http.title": "127.0.0.1 HTTP + 페어링. switchboard native install --apply 하면 데몬 켜 두기·페어링이 필요 없어짐",
 } as const;
 
 export type Key = keyof typeof ko;
@@ -232,6 +236,10 @@ const en: Record<Key, string> = {
   "tab.settings": "settings",
   "addr": "address",
   "addr.title": "Change the daemon address",
+  "transport.native": "native",
+  "transport.http": "HTTP",
+  "transport.native.title": "The browser starts Switchboard itself (no daemon to keep running, no pairing)",
+  "transport.http.title": "127.0.0.1 over HTTP with pairing. Run switchboard native install --apply to drop both",
 };
 
 const CATALOG: Record<Lang, Record<Key, string>> = { ko, en };

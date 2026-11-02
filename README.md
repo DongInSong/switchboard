@@ -24,7 +24,7 @@ Nothing leaves your machine except what Claude Code itself sends. The daemon onl
 
 ```
 Browser extension (pick · capture · side panel)
-        │  HTTP on 127.0.0.1:7490, paired token
+        │  native messaging (browser starts the host) · or HTTP on 127.0.0.1:7490 with a paired token
         ▼
 switchboard daemon ─ finds sessions · reads context · ranks · delivers · tracks
         │  tmux paste-buffer / send-keys     (VS Code: clipboard + focus the tab)
@@ -64,14 +64,18 @@ Plain terminals can't be typed into from outside (TIOCSTI is off on modern kerne
 
 1. Download `switchboard.mjs` and the extension zip (`switchboard-<version>-edge.zip` or `-chrome.zip`) from [Releases](https://github.com/DongInSong/switchboard/releases).
 2. Unzip the extension and load it: `edge://extensions` (or `chrome://extensions`) → Developer mode → Load unpacked.
-3. Run the daemon with Node.js 24+:
+3. Let the browser start Switchboard itself (Node.js 24+):
 
 ```bash
-node switchboard.mjs doctor     # checks node, claude, tmux
-node switchboard.mjs start      # daemon (foreground)
-node switchboard.mjs pair       # 6-digit code for the side panel
-node switchboard.mjs claude     # start Claude Code inside tmux
+node switchboard.mjs doctor                  # checks node, claude, tmux
+node switchboard.mjs native install          # preview what gets registered
+node switchboard.mjs native install --apply  # register the native messaging host
+node switchboard.mjs claude                  # start Claude Code inside tmux
 ```
+
+Reload the extension and you're done: the browser launches the host when the extension needs it, the host starts the daemon in the background, and there's no pairing. `node switchboard.mjs stop` stops the background daemon; `native uninstall --apply` removes the registration.
+
+Without the native host, run `node switchboard.mjs start` and pair once with `node switchboard.mjs pair` (the side panel asks for the code).
 
 ### From source
 
@@ -121,7 +125,7 @@ Precedence: environment variables > `~/.config/switchboard/config.json` > defaul
 
 ## Security
 
-- The daemon binds to `127.0.0.1` only, requires a paired bearer token, and rejects requests from web origins.
+- With the native host, only this extension (fixed ID) can talk to it; the browser enforces that. Over HTTP, the daemon binds to `127.0.0.1` only, requires a paired bearer token, and rejects requests from web origins.
 - Nothing is sent to a session without your approval. Text pasted into a terminal session runs with your authority, so be careful with sessions in bypass-permissions mode.
 - Text collected from pages is marked as reference data, not instructions, in every prompt.
 - The extension asks for host permissions only for sites you choose (auto-restore) and for a non-default daemon port.
