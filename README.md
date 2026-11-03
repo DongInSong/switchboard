@@ -18,7 +18,7 @@ Point at something in your browser, say what to change, and Switchboard hands it
 
 Nothing leaves your machine except what Claude Code itself sends. The daemon only listens on `127.0.0.1`.
 
-> Status: early (0.2.0). Built and tested on Windows + WSL2 with Edge; macOS support is new. Not affiliated with Anthropic.
+> Status: early (0.2.3). Built and tested on Windows + WSL2 with Edge; macOS support is new. Not affiliated with Anthropic.
 
 ## How it works
 
