@@ -2,18 +2,19 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ActivityTracker, TranscriptTail, assistantAfter, assistantReply, hasPrompt, parseLine, projectSlug, recentPrompts } from "./transcript.ts";
+import { ActivityTracker, TranscriptTail, applyLine, assistantAfter, assistantReply, emptyActivity, hasPrompt, parseLine, projectSlug, recentPrompts } from "./transcript.ts";
 
 const at = (s: number) => new Date(1_800_000_000_000 + s * 1000).toISOString();
 const user = (text: string, t: number, extra: object = {}) =>
   JSON.stringify({ type: "user", message: { role: "user", content: text }, origin: { kind: "human" }, timestamp: at(t), ...extra });
-const assistant = (content: object[], t: number) => JSON.stringify({ type: "assistant", message: { role: "assistant", content }, timestamp: at(t) });
+const assistant = (content: object[], t: number, stop: string | null = null) =>
+  JSON.stringify({ type: "assistant", message: { role: "assistant", content, stop_reason: stop }, timestamp: at(t) });
 
 describe("parseLine", () => {
-  it("사람이 친 프롬프트만 받는다", () => {
+  it("사람이 친 프롬프트만 프롬프트로 받는다(나머지 메인 입력은 input)", () => {
     expect(parseLine(user("안녕", 1))).toMatchObject({ type: "prompt", text: "안녕" });
-    expect(parseLine(JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", content: "x" }] }, timestamp: at(1) }))).toBeNull();
-    expect(parseLine(user("<command-name>/clear</command-name>", 1))).toBeNull();
+    expect(parseLine(JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", content: "x" }] }, timestamp: at(1) }))).toMatchObject({ type: "input" });
+    expect(parseLine(user("<command-name>/clear</command-name>", 1))).toMatchObject({ type: "input" });
     expect(parseLine(user("서브에이전트", 1, { isSidechain: true }))).toBeNull();
   });
 
@@ -24,9 +25,37 @@ describe("parseLine", () => {
       timestamp: at(1),
     });
     expect(parseLine(vscode)).toMatchObject({ type: "prompt", text: "[switchboard #3] 고쳐줘" });
-    expect(parseLine(user("다른 세션이 보냄", 1, { origin: { kind: "peer" } }))).toBeNull();
-    expect(parseLine(user("메타", 1, { isMeta: true }))).toBeNull();
-    expect(parseLine(user("[Request interrupted by user]", 1, { origin: undefined }))).toBeNull();
+    expect(parseLine(user("다른 세션이 보냄", 1, { origin: { kind: "peer" } }))).toMatchObject({ type: "input" });
+    expect(parseLine(user("메타", 1, { isMeta: true }))).toMatchObject({ type: "input" });
+    expect(parseLine(user("[Request interrupted by user]", 1, { origin: undefined }))).toMatchObject({ type: "input" });
+  });
+
+  it("메인 턴 끝: 마지막 응답이 end_turn이고 그 뒤 입력이 없을 때만 (백그라운드 에이전트가 돌아도 입력칸은 빔)", () => {
+    const a = emptyActivity();
+    const feed = (line: string) => {
+      const p = parseLine(line);
+      if (p) applyLine(a, p);
+    };
+    feed(user("[switchboard #8] 감사해 줘", 1));
+    expect(a.turnEndedAt).toBeUndefined();
+    feed(assistant([{ type: "tool_use", name: "Agent", input: {} }], 2, "tool_use"));
+    feed(JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", content: "launched in background" }] }, timestamp: at(3) }));
+    expect(a.turnEndedAt).toBeUndefined();
+    // 실측(2.1.317): 생각 줄과 텍스트 줄이 따로, 둘 다 end_turn
+    feed(assistant([{ type: "thinking", thinking: "" }], 4, "end_turn"));
+    feed(assistant([{ type: "text", text: "에이전트 결과가 오면 정리하겠습니다" }], 4, "end_turn"));
+    feed(JSON.stringify({ type: "system", subtype: "stop_hook_summary", timestamp: at(4) }));
+    expect(a.turnEndedAt).toBe(Date.parse(at(4)));
+    // 에이전트 완료 알림 → 메인 턴이 다시 돈다
+    feed(user("<task-notification>done</task-notification>", 5, { origin: { kind: "task-notification" } }));
+    expect(a.turnEndedAt).toBeUndefined();
+    feed(assistant([{ type: "text", text: "정리" }], 6, "end_turn"));
+    expect(a.turnEndedAt).toBe(Date.parse(at(6)));
+    feed(user("다음 요청", 7));
+    expect(a.turnEndedAt).toBeUndefined();
+    // 스트리밍 중(stop_reason 없음)은 진행 중
+    feed(assistant([{ type: "text", text: "…" }], 8, null));
+    expect(a.turnEndedAt).toBeUndefined();
   });
 
   it("긴 붙여넣기의 <pasted_content> 감싸기를 벗긴다 (실측 형식)", () => {

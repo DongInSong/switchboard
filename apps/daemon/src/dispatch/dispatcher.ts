@@ -208,7 +208,7 @@ export class Dispatcher {
     const stat = await this.#d.readStat(s.pid);
     if (!stat || (s.procStart && stat.startTime !== s.procStart)) return { ok: false, wait: "gone" };
     if (s.status === "waiting") return { ok: false, wait: "waiting" };
-    if (s.status === "busy" && d.mode === "wait-idle") return { ok: false, wait: "busy" };
+    if (s.status === "busy" && d.mode === "wait-idle" && !(await this.#onlyBackground(s))) return { ok: false, wait: "busy" };
     if (s.status === undefined) return { ok: false, wait: "unknown-screen" };
     const pane = await this.#d.tmux.paneInfo(s.tmux.paneId);
     if (!pane || pane.dead) return { ok: false, wait: "gone" };
@@ -222,6 +222,19 @@ export class Dispatcher {
     if (box.state === "unknown") return { ok: false, wait: "unknown-screen" };
     if (box.state === "text") return { ok: false, wait: "input" };
     return { ok: true, session: s, pane };
+  }
+
+  /**
+   * 레지스트리는 busy인데 메인 턴은 끝난 경우(백그라운드 에이전트만 도는 중, 실측 2.1.317): 사람이 쳐도 되는 상태이므로 보낸다.
+   * 대화 기록에서 턴이 끝났고(end_turn 뒤 입력 없음), 그 끝이 이 세션에 마지막으로 넣은 요청보다 뒤여야 한다
+   * (방금 넣은 요청이 아직 기록에 안 잡혔을 때 다음 요청을 겹쳐 넣지 않게).
+   */
+  async #onlyBackground(s: Session): Promise<boolean> {
+    if (!s.sessionId) return false;
+    const a = await this.#d.activity.get(s.sessionId, s.cwd).catch(() => null);
+    if (a?.turnEndedAt === undefined) return false;
+    const lastIn = Math.max(0, ...this.#d.store.activeDispatches().flatMap((x) => (x.sessionKey === s.key && x.deliveredAt ? [x.deliveredAt] : [])));
+    return a.turnEndedAt > lastIn;
   }
 
   async #process(id: number): Promise<void> {
@@ -291,6 +304,8 @@ export class Dispatcher {
     if (!(await this.#d.tmux.enter(pane.paneId))) return void fail(this.#t(d.requestId, "dsp.enterFailed"));
 
     // 제출 확인: 입력칸에서 사라졌거나, 세션이 busy가 되었거나, 대화 기록에 프롬프트가 생겼으면 성공.
+    // 백그라운드 작업으로 이미 busy였다면 busy는 증거가 못 된다.
+    const busyBefore = s.status === "busy";
     for (const until = this.#now() + this.#c.verifyTimeoutMs; this.#now() <= until; ) {
       await this.#sleep(this.#c.verifyPollMs);
       const [screen, snap, activity] = await Promise.all([
@@ -302,7 +317,7 @@ export class Dispatcher {
       const cleared = box !== null && box.state !== "unknown" && !inputHasPaste(box, d.marker);
       const busy = this.#findSession(s.key, snap)?.status === "busy";
       const recorded = activity?.events.some((e) => e.kind === "prompt" && e.text.includes(d.marker) && e.at >= begunAt - 2000) ?? false;
-      if (cleared || busy || recorded) {
+      if (cleared || (busy && !busyBefore) || recorded) {
         this.#update(d.id, { state: busy ? "working" : "delivered", deliveredAt: this.#now() });
         this.#trackInBackground(d.id);
         return;

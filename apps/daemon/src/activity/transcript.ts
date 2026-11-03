@@ -19,6 +19,11 @@ export type Activity = {
   events: ActivityEvent[];
   files: RecentFile[];
   lastActivityAt: number | undefined;
+  /**
+   * 메인 턴이 끝난 시각(마지막 응답이 end_turn이고 그 뒤로 입력이 없을 때). 턴 진행 중이면 undefined.
+   * 백그라운드 에이전트가 도는 동안 레지스트리는 계속 busy라서, 입력칸이 정말 비었는지는 이걸로 가린다.
+   */
+  turnEndedAt: number | undefined;
 };
 
 const MAX_EVENTS = 240;
@@ -36,7 +41,12 @@ export function unwrapPasted(text: string): string {
 export type ParsedLine =
   | { type: "title"; title: string }
   | { type: "prompt"; text: string; at: number }
-  | { type: "assistant"; texts: string[]; files: RecentFile[]; at: number; blocks: ("text" | "tool")[] };
+  /** 사람이 친 프롬프트가 아닌 메인 입력(도구 결과, 에이전트 완료 알림, 명령 출력 등). 턴이 이어진다는 뜻으로만 쓴다. */
+  | { type: "input"; at: number }
+  | { type: "assistant"; texts: string[]; files: RecentFile[]; at: number; blocks: ("text" | "tool")[]; stop: string | null };
+
+/** 메인 턴을 끝내는 stop_reason. */
+const TURN_END = new Set(["end_turn", "stop_sequence", "refusal"]);
 
 /** 한 줄 파싱. 관심 없는 줄은 JSON.parse 전에 걸러 낸다(줄이 수 MB인 경우가 있음). */
 export function parseLine(line: string): ParsedLine | null {
@@ -54,14 +64,15 @@ export function parseLine(line: string): ParsedLine | null {
   if (d.type === "user") {
     // 사람이 친 프롬프트만. CLI는 origin.kind가 "human". VS Code 확장 기록은 origin이 없을 수 있어 받되,
     // 다른 origin(다른 세션 메시지 등)·메타·요약·도구 결과는 뺀다. 앞에 붙는 <ide_…>·<system-reminder> 블록은 걷어 낸다.
+    const input = { type: "input", at } as const;
     const origin = obj(d.origin)?.kind;
-    if (origin !== undefined && origin !== "human") return null;
-    if (d.isMeta === true || d.isCompactSummary === true) return null;
+    if (origin !== undefined && origin !== "human") return input;
+    if (d.isMeta === true || d.isCompactSummary === true) return input;
     const content = message?.content;
     let text = "";
     if (typeof content === "string") text = content;
     else if (Array.isArray(content)) {
-      if (content.some((b) => obj(b)?.type === "tool_result")) return null;
+      if (content.some((b) => obj(b)?.type === "tool_result")) return input;
       text = content
         .map((b) => (obj(b)?.type === "text" ? String(obj(b)?.text ?? "") : ""))
         .filter((t) => !/^\s*<(ide_[a-z_]+|system-reminder)>/.test(t))
@@ -69,7 +80,7 @@ export function parseLine(line: string): ParsedLine | null {
     }
     // 긴 붙여넣기는 <pasted_content id="…">…</pasted_content>로 감싸 저장된다(실측 v2.1.316). 안쪽 내용을 쓴다.
     text = unwrapPasted(text).trim();
-    if (!text || text.startsWith("<") || text.startsWith("[Request interrupted")) return null;
+    if (!text || text.startsWith("<") || text.startsWith("[Request interrupted")) return input;
     return { type: "prompt", text, at };
   }
   if (d.type === "assistant" && Array.isArray(message?.content)) {
@@ -92,14 +103,15 @@ export function parseLine(line: string): ParsedLine | null {
         else if (b.name === "Read") files.push({ path, op: "read", at });
       }
     }
-    if (blocks.length === 0) return null;
-    return { type: "assistant", texts, files, at, blocks };
+    // 생각만 든 줄도 stop_reason을 실어 온다(턴 끝 판단용)
+    const stop = typeof message.stop_reason === "string" ? message.stop_reason : null;
+    return { type: "assistant", texts, files, at, blocks, stop };
   }
   return null;
 }
 
 export function emptyActivity(): Activity {
-  return { title: undefined, events: [], files: [], lastActivityAt: undefined };
+  return { title: undefined, events: [], files: [], lastActivityAt: undefined, turnEndedAt: undefined };
 }
 
 export function applyLine(a: Activity, p: ParsedLine): void {
@@ -108,8 +120,15 @@ export function applyLine(a: Activity, p: ParsedLine): void {
     return;
   }
   if (p.at) a.lastActivityAt = Math.max(a.lastActivityAt ?? 0, p.at);
-  if (p.type === "prompt") a.events.push({ kind: "prompt", text: p.text, at: p.at });
-  else {
+  if (p.type === "input") {
+    a.turnEndedAt = undefined;
+    return;
+  }
+  if (p.type === "prompt") {
+    a.turnEndedAt = undefined;
+    a.events.push({ kind: "prompt", text: p.text, at: p.at });
+  } else {
+    a.turnEndedAt = p.stop !== null && TURN_END.has(p.stop) ? p.at || Date.now() : undefined;
     let ti = 0;
     for (const b of p.blocks) {
       if (b === "text") a.events.push({ kind: "assistant", text: p.texts[ti++]!, at: p.at });

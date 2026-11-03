@@ -246,6 +246,79 @@ describe("Dispatcher", () => {
     expect(world.submitted).toHaveLength(1);
   });
 
+  describe("백그라운드 에이전트만 도는 중(레지스트리는 busy, 메인 턴은 끝남, 실측 2.1.317)", () => {
+    /** Enter를 받으면 메인 턴이 돌고 30ms 뒤 끝나지만, 백그라운드 에이전트 때문에 레지스트리는 계속 busy. 기록은 늦게 잡힌다. */
+    function backgroundWorld() {
+      const turnAtEnter: (number | undefined)[] = [];
+      world.tmux.enter = async () => {
+        if (!world.enterWorks) return true;
+        turnAtEnter.push(world.activity.turnEndedAt);
+        const text = world.input;
+        world.input = "";
+        world.submitted.push(text);
+        // 기록이 늦게 잡히는 경우: 프롬프트·턴 끝을 30ms 뒤에 한꺼번에
+        setTimeout(() => {
+          world.activity.events.push({ kind: "prompt", text, at: Date.now() - 30 }, { kind: "assistant", text: "끝", at: Date.now() });
+          world.activity.turnEndedAt = Date.now();
+        }, 30);
+        return true;
+      };
+      return turnAtEnter;
+    }
+
+    it("메인 턴이 끝났으면 예약에서 풀어 보내고, 작업 중으로 두었다가 레지스트리가 유휴가 되면 완료", async () => {
+      backgroundWorld();
+      world.setStatus("busy");
+      const id = newRequest("[switchboard #N] a");
+      const d = dispatcher.enqueue(id, world.session(), "wait-idle", `[switchboard #${id}]`);
+      await until(() => store.getDispatch(d.id)?.waitReason === "busy");
+      expect(world.submitted).toEqual([]);
+      world.activity.turnEndedAt = Date.now();
+      await until(() => world.submitted.length === 1);
+      await until(() => store.getDispatch(d.id)?.state === "working");
+      await new Promise((r) => setTimeout(r, 60));
+      expect(store.getDispatch(d.id)?.state).toBe("working");
+      world.setStatus("idle");
+      await until(() => store.getDispatch(d.id)?.state === "done");
+    });
+
+    it("방금 넣은 요청의 턴이 기록에 잡히기 전에는 다음 요청을 겹쳐 넣지 않는다", async () => {
+      const turnAtEnter = backgroundWorld();
+      world.setStatus("busy");
+      world.activity.turnEndedAt = Date.now() - 1000;
+      const a = newRequest("[switchboard #N] a");
+      const b = newRequest("[switchboard #N] b");
+      dispatcher.enqueue(a, world.session(), "wait-idle", `[switchboard #${a}]`);
+      const db = dispatcher.enqueue(b, world.session(), "wait-idle", `[switchboard #${b}]`);
+      await until(() => world.submitted.length === 2);
+      const first = store.getDispatch(db.id - 1)!;
+      // 두 번째 Enter 때 보인 턴 끝은 첫 요청을 넣은 뒤의 것
+      expect(turnAtEnter[1]).toBeGreaterThan(first.deliveredAt!);
+    });
+
+    it("이미 busy였으면 busy를 제출 증거로 쓰지 않는다(Enter가 안 먹으면 실패)", async () => {
+      backgroundWorld();
+      world.enterWorks = false;
+      world.setStatus("busy");
+      world.activity.turnEndedAt = Date.now();
+      const id = newRequest("[switchboard #N] a");
+      const d = dispatcher.enqueue(id, world.session(), "wait-idle", `[switchboard #${id}]`);
+      await until(() => store.getDispatch(d.id)?.state === "failed");
+      expect(store.getDispatch(d.id)?.error).toContain("확인 안 됨");
+    });
+
+    it("턴이 다시 돌면(에이전트 완료 알림 등) 기다린다", async () => {
+      world.setStatus("busy");
+      world.activity.turnEndedAt = undefined;
+      const id = newRequest("[switchboard #N] a");
+      const d = dispatcher.enqueue(id, world.session(), "wait-idle", `[switchboard #${id}]`);
+      await until(() => store.getDispatch(d.id)?.waitReason === "busy");
+      await new Promise((r) => setTimeout(r, 60));
+      expect(world.submitted).toEqual([]);
+      dispatcher.cancel(d.id);
+    });
+  });
+
   it("응답 대기(권한 확인) 중에는 절대 입력하지 않는다", async () => {
     world.setStatus("waiting");
     world.dialog = true;
