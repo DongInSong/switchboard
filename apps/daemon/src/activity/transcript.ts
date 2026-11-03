@@ -1,4 +1,6 @@
+import { createReadStream } from "node:fs";
 import { open, readdir, stat } from "node:fs/promises";
+import { createInterface } from "node:readline";
 import { join } from "node:path";
 import type { RecentFile, Session, SessionSnapshot } from "@switchboard/protocol";
 
@@ -24,6 +26,8 @@ export type Activity = {
    * 백그라운드 에이전트가 도는 동안 레지스트리는 계속 busy라서, 입력칸이 정말 비었는지는 이걸로 가린다.
    */
   turnEndedAt: number | undefined;
+  /** 이 기록에 origin이 "human"인 프롬프트가 있었는지. 있으면 origin 없는 user 줄은 사람이 친 게 아니다. */
+  humanOrigin: boolean;
 };
 
 const MAX_EVENTS = 240;
@@ -40,10 +44,17 @@ export function unwrapPasted(text: string): string {
 
 export type ParsedLine =
   | { type: "title"; title: string }
-  | { type: "prompt"; text: string; at: number }
+  /** human: origin.kind가 "human"으로 적혀 있었는지(없으면 false). */
+  | { type: "prompt"; text: string; at: number; human: boolean }
   /** 사람이 친 프롬프트가 아닌 메인 입력(도구 결과, 에이전트 완료 알림, 명령 출력 등). 턴이 이어진다는 뜻으로만 쓴다. */
   | { type: "input"; at: number }
   | { type: "assistant"; texts: string[]; files: RecentFile[]; at: number; blocks: ("text" | "tool")[]; stop: string | null };
+
+/**
+ * 다른 세션·에이전트가 보낸 메시지. 실측(2.1.317): 백그라운드 에이전트 완료가 origin 없이
+ * "Another Claude session sent a message: <teammate-message …>"로 user 줄에 들어온다.
+ */
+const PEER_MESSAGE = /^Another Claude session sent a message:|^<(teammate-message|task-notification)\b/;
 
 /** 메인 턴을 끝내는 stop_reason. */
 const TURN_END = new Set(["end_turn", "stop_sequence", "refusal"]);
@@ -80,8 +91,8 @@ export function parseLine(line: string): ParsedLine | null {
     }
     // 긴 붙여넣기는 <pasted_content id="…">…</pasted_content>로 감싸 저장된다(실측 v2.1.316). 안쪽 내용을 쓴다.
     text = unwrapPasted(text).trim();
-    if (!text || text.startsWith("<") || text.startsWith("[Request interrupted")) return input;
-    return { type: "prompt", text, at };
+    if (!text || text.startsWith("<") || text.startsWith("[Request interrupted") || PEER_MESSAGE.test(text) || text.slice(0, 300).includes("<teammate-message")) return input;
+    return { type: "prompt", text, at, human: origin === "human" };
   }
   if (d.type === "assistant" && Array.isArray(message?.content)) {
     const texts: string[] = [];
@@ -111,15 +122,20 @@ export function parseLine(line: string): ParsedLine | null {
 }
 
 export function emptyActivity(): Activity {
-  return { title: undefined, events: [], files: [], lastActivityAt: undefined, turnEndedAt: undefined };
+  return { title: undefined, events: [], files: [], lastActivityAt: undefined, turnEndedAt: undefined, humanOrigin: false };
 }
 
-export function applyLine(a: Activity, p: ParsedLine): void {
+export function applyLine(a: Activity, p: ParsedLine, maxEvents = MAX_EVENTS): void {
   if (p.type === "title") {
     a.title = p.title;
     return;
   }
   if (p.at) a.lastActivityAt = Math.max(a.lastActivityAt ?? 0, p.at);
+  if (p.type === "prompt") {
+    if (p.human) a.humanOrigin = true;
+    // origin을 적는 기록에서 origin 없는 줄은 사람이 친 게 아니다(다른 세션 메시지 등)
+    else if (a.humanOrigin) p = { type: "input", at: p.at };
+  }
   if (p.type === "input") {
     a.turnEndedAt = undefined;
     return;
@@ -136,7 +152,7 @@ export function applyLine(a: Activity, p: ParsedLine): void {
     }
     a.files.push(...p.files);
   }
-  if (a.events.length > MAX_EVENTS) a.events.splice(0, a.events.length - MAX_EVENTS);
+  if (a.events.length > maxEvents) a.events.splice(0, a.events.length - maxEvents);
   if (a.files.length > MAX_FILES) a.files.splice(0, a.files.length - MAX_FILES);
 }
 
@@ -189,6 +205,32 @@ export function assistantAfter(a: Activity, marker: string): string | undefined 
     if (e.kind === "assistant") last = e.text;
   }
   return last;
+}
+
+/**
+ * 기록 파일을 처음부터 훑어 마커 프롬프트 턴의 최종 답변을 찾는다. 꼬리 읽기에 그 프롬프트가 없을 때
+ * (데몬 재시작 뒤 앞부분을 안 읽었거나, 턴이 길어 이벤트 상한에서 밀려났을 때) 완료 시점에 한 번 쓴다.
+ * 마커 턴부터는 상한 없이 담고, 다음 프롬프트가 나오면 멈춘다.
+ */
+export async function scanReply(file: string, marker: string): Promise<string | undefined> {
+  const a = emptyActivity();
+  let inTurn = false;
+  const rl = createInterface({ input: createReadStream(file, { encoding: "utf8" }), crlfDelay: Infinity });
+  try {
+    for await (const line of rl) {
+      const p = parseLine(line);
+      if (!p) continue;
+      const last = a.events.at(-1);
+      applyLine(a, p, inTurn ? Number.MAX_SAFE_INTEGER : MAX_EVENTS);
+      const added = a.events.at(-1);
+      if (added === last || added?.kind !== "prompt") continue;
+      if (added.text.includes(marker)) inTurn = true;
+      else if (inTurn) break;
+    }
+  } finally {
+    rl.close();
+  }
+  return inTurn ? assistantReply(a, marker) : undefined;
 }
 
 /** 파일 하나의 꼬리를 증분으로 읽는다. 처음에는 끝에서 initialBytes만 읽는다. */
@@ -285,6 +327,15 @@ export class ActivityTracker {
       /* projects 없음 */
     }
     return null;
+  }
+
+  /** 마커 요청의 최종 답변. 꼬리에 그 프롬프트가 없으면 파일 전체를 훑는다. */
+  async reply(sessionId: string, cwd: string, marker: string): Promise<string | undefined> {
+    const a = await this.get(sessionId, cwd);
+    if (!a) return undefined;
+    if (hasPrompt(a, marker)) return assistantReply(a, marker);
+    const file = this.#tails.get(sessionId)?.file;
+    return file ? scanReply(file, marker) : undefined;
   }
 
   async get(sessionId: string, cwd: string): Promise<Activity | null> {

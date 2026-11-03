@@ -61,7 +61,11 @@ export type DispatcherDeps = {
   store: Store;
   registry: DispatcherRegistry;
   tmux: TmuxLike;
-  activity: { get(sessionId: string, cwd: string): Promise<Activity | null> };
+  activity: {
+    get(sessionId: string, cwd: string): Promise<Activity | null>;
+    /** 마커 요청의 최종 답변(꼬리에 없으면 파일 전체에서). 없으면 get()의 꼬리에서만 찾는다. */
+    reply?(sessionId: string, cwd: string, marker: string): Promise<string | undefined>;
+  };
   readStat(pid: number): Promise<ProcStat | null>;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -237,6 +241,16 @@ export class Dispatcher {
     return a.turnEndedAt > lastIn;
   }
 
+  async #reply(sessionId: string, cwd: string, marker: string): Promise<string | undefined> {
+    try {
+      if (this.#d.activity.reply) return await this.#d.activity.reply(sessionId, cwd, marker);
+      const a = await this.#d.activity.get(sessionId, cwd);
+      return a ? assistantReply(a, marker) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   async #process(id: number): Promise<void> {
     const startedAt = this.#now();
     let goneSince: number | null = null;
@@ -394,8 +408,7 @@ export class Dispatcher {
             sawBusy = true;
             if (d.state !== "working") this.#update(id, { state: "working" });
           } else if (s.status === "idle" && (sawBusy || this.#now() - (d.deliveredAt ?? start) > 5000)) {
-            const activity = s.sessionId ? await this.#d.activity.get(s.sessionId, s.cwd).catch(() => null) : null;
-            const reply = activity ? assistantReply(activity, d.marker) : undefined;
+            const reply = s.sessionId ? await this.#reply(s.sessionId, s.cwd, d.marker) : undefined;
             this.#update(id, {
               state: "done",
               finishedAt: this.#now(),

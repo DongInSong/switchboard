@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ActivityTracker, TranscriptTail, applyLine, assistantAfter, assistantReply, emptyActivity, hasPrompt, parseLine, projectSlug, recentPrompts } from "./transcript.ts";
+import { ActivityTracker, TranscriptTail, applyLine, assistantAfter, assistantReply, emptyActivity, hasPrompt, parseLine, projectSlug, recentPrompts, scanReply } from "./transcript.ts";
 
 const at = (s: number) => new Date(1_800_000_000_000 + s * 1000).toISOString();
 const user = (text: string, t: number, extra: object = {}) =>
@@ -183,5 +183,60 @@ describe("최종 답변", () => {
     await tail.poll();
     expect(assistantReply(tail.activity, "[switchboard #9]")).toBe("## 결과\n\n| 항목 | 값 |\n| --- | --- |\n| a | 1 |");
     expect(assistantReply(tail.activity, "[switchboard #404]")).toBeUndefined();
+  });
+});
+
+describe("백그라운드 에이전트가 끼는 턴 (실측 2.1.317 순서)", () => {
+  // 에이전트 완료 메시지는 origin 없이 user 줄로 온다
+  const peer = (t: number) => JSON.stringify({ type: "user", message: { role: "user", content: 'Another Claude session sent a message: <teammate-message teammate_id="docs-research">요약</teammate-message>' }, timestamp: at(t) });
+  const lines = [
+    user("[switchboard #8] 감사해 줘", 1),
+    assistant([{ type: "tool_use", name: "Agent", input: {} }], 2, "tool_use"),
+    JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", content: "launched" }] }, timestamp: at(3) }),
+    assistant([{ type: "text", text: "리서치 에이전트가 아직 읽는 중입니다." }], 4, "end_turn"),
+    peer(10),
+    assistant([{ type: "text", text: "결과가 도착했습니다." }, { type: "tool_use", name: "Bash", input: {} }], 11, "tool_use"),
+    JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", content: "ok" }] }, timestamp: at(12) }),
+    assistant([{ type: "text", text: "감사 결과입니다." }], 13, "end_turn"),
+    peer(14),
+    assistant([{ type: "text", text: "완료 알림이라 새로 할 일은 없습니다." }], 15, "end_turn"),
+    user("[switchboard #9] 토글도", 16),
+    assistant([{ type: "text", text: "토글 답" }], 17, "end_turn"),
+  ];
+
+  it("에이전트 메시지는 프롬프트가 아니다: 최종 답변이 에이전트 뒤의 결과까지 간다", () => {
+    expect(parseLine(peer(1))).toMatchObject({ type: "input" });
+    const a = emptyActivity();
+    for (const l of lines) {
+      const p = parseLine(l);
+      if (p) applyLine(a, p);
+    }
+    expect(recentPrompts(a)).toEqual(["[switchboard #8] 감사해 줘", "[switchboard #9] 토글도"]);
+    expect(assistantReply(a, "[switchboard #8]")).toBe("감사 결과입니다.\n\n완료 알림이라 새로 할 일은 없습니다.");
+  });
+
+  it("origin을 적는 기록에서는 origin 없는 user 줄을 프롬프트로 치지 않는다", () => {
+    const a = emptyActivity();
+    for (const l of [user("사람", 1), JSON.stringify({ type: "user", message: { role: "user", content: "알 수 없는 출처" }, timestamp: at(2) })]) {
+      const p = parseLine(l);
+      if (p) applyLine(a, p);
+    }
+    expect(recentPrompts(a)).toEqual(["사람"]);
+  });
+
+  it("꼬리에 프롬프트가 없으면(재시작 뒤) 파일 전체에서 찾는다", async () => {
+    dir = mkdtempSync(join(tmpdir(), "sb-tr-"));
+    const cwd = "/home/u/app";
+    mkdirSync(join(dir, "projects", projectSlug(cwd)), { recursive: true });
+    const f = join(dir, "projects", projectSlug(cwd), "sid-8.jsonl");
+    // 프롬프트 뒤에 큰 줄을 끼워 꼬리(4MB) 밖으로 밀어낸다
+    const filler = assistant([{ type: "text", text: "x".repeat(5 * 1024 * 1024) }, { type: "tool_use", name: "Read", input: {} }], 3, "tool_use");
+    writeFileSync(f, [lines[0], lines[1], lines[2], filler, ...lines.slice(3)].join("\n") + "\n");
+    const tracker = new ActivityTracker(dir);
+    const a = await tracker.get("sid-8", cwd);
+    expect(hasPrompt(a!, "[switchboard #8]")).toBe(false);
+    expect(await tracker.reply("sid-8", cwd, "[switchboard #8]")).toBe("감사 결과입니다.\n\n완료 알림이라 새로 할 일은 없습니다.");
+    expect(await tracker.reply("sid-8", cwd, "[switchboard #9]")).toBe("토글 답");
+    expect(await scanReply(f, "[switchboard #404]")).toBeUndefined();
   });
 });
