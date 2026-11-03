@@ -7,6 +7,7 @@ import { altDigit, altLabel, isAlt, sendLabel } from "../keys.ts";
 import { copyText, pasteKey, dispatchLabel, elapsed, isFinal, orderedSessions, pasteHint, primaryLabel, projectName, reasonLabel, sourceShort, statusOf, surfaceTag, waitLabel } from "../ui/labels.ts";
 import type { DraftSummary } from "../drafts.ts";
 import { Markdown } from "../ui/Markdown.tsx";
+import { insideViewport, placeAtPoint } from "./place.ts";
 import { ThumbCanvas } from "../ui/ThumbCanvas.tsx";
 import { closePopover, loadDraft, raisePopover, saveDraft, updateChip, updatePopover, useStore, type Chip, type Composing, type Link, type Store } from "./store.ts";
 
@@ -74,6 +75,9 @@ async function rememberedSession(origin: string): Promise<string | undefined> {
   const v = (await browser.storage.local.get(lastKey(origin)))[lastKey(origin)];
   return typeof v === "string" ? v : undefined;
 }
+
+/** 팝업과 화면 가장자리 사이 여백. */
+const POP_PAD = 8;
 
 function virtualRef(r: Rect) {
   return {
@@ -277,22 +281,48 @@ function Popover({
     if (focusReq?.id === c.id) textRef.current?.focus({ preventScroll: true });
   }, [focusReq, c.id]);
 
-  // 위치: 선택 영역 옆. 사용자가 끌어 옮기면 그대로 둔다.
+  // 위치: 선택 영역 옆. 옆 어디에도 다 들어가지 않으면(큰 영역) 선택을 끝낸 포인터 위치에 붙여 영역과 겹치게 둔다.
+  // 사용자가 끌어 옮기면 그대로 둔다.
+  const pointX = c.point?.x;
+  const pointY = c.point?.y;
   useLayoutEffect(() => {
     const el = boxRef.current;
     if (!el || manual) return;
-    const update = () =>
-      void computePosition(virtualRef(c.rect), el, {
+    let alive = true;
+    const update = async () => {
+      const side = await computePosition(virtualRef(c.rect), el, {
         strategy: "fixed",
         placement: "right-start",
-        // 근처에 이미 떠 있는 팝업이 있으면 그만큼 비켜서
-        middleware: [offset({ mainAxis: 10 + c.cascade * 16, crossAxis: c.cascade * 32 }), flip({ fallbackPlacements: ["bottom-start", "left-start", "top-start"] }), shift({ padding: 8 })],
-      }).then(({ x, y }) => setPos({ x, y }));
-    update();
-    const ro = new ResizeObserver(update);
+        // 근처에 이미 떠 있는 팝업이 있으면 그만큼 비켜서.
+        // flip은 옆 방향(가로·세로 중 붙는 쪽)만 따지고, 다른 축은 shift가 화면 안으로 민다.
+        middleware: [
+          offset({ mainAxis: 10 + c.cascade * 16, crossAxis: c.cascade * 32 }),
+          flip({ crossAxis: false, fallbackPlacements: ["bottom-start", "left-start", "top-start"] }),
+          shift({ padding: POP_PAD }),
+        ],
+      });
+      if (!alive) return;
+      const size = { width: el.offsetWidth, height: el.offsetHeight };
+      const vp = { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight };
+      if (insideViewport({ x: side.x, y: side.y, ...size }, vp, POP_PAD)) {
+        setPos({ x: side.x, y: side.y });
+        return;
+      }
+      // 예전 초안에는 포인터 위치가 없다: 영역 오른쪽 아래 끝(보통 드래그를 끝낸 곳)
+      const point = pointX !== undefined && pointY !== undefined ? { x: pointX, y: pointY } : { x: c.rect.x + c.rect.width, y: c.rect.y + c.rect.height };
+      setPos(placeAtPoint(point, size, vp, { pad: POP_PAD, gap: 12 + c.cascade * 16 }));
+    };
+    void update();
+    const ro = new ResizeObserver(() => void update());
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [c.rect, c.cascade, manual]);
+    const onResize = () => void update();
+    window.addEventListener("resize", onResize);
+    return () => {
+      alive = false;
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, [c.rect, c.cascade, pointX, pointY, manual]);
 
   const extraIds = c.links.flatMap((l) => (l.captureId ? [l.captureId] : []));
   const extraKey = extraIds.join(",");
@@ -482,108 +512,111 @@ function Popover({
           ✕
         </button>
       </div>
-      {openShot === "main" && c.thumbnail && (
-        <div className="sb-shot">
-          <ThumbCanvas thumb={c.thumbnail} maxW={350} maxH={220} maxScale={2} />
+      {/* 머리줄과 아래 단축키 줄 사이: 팝업이 화면보다 길어지면 여기만 스크롤 */}
+      <div className="sb-body">
+        {openShot === "main" && c.thumbnail && (
+          <div className="sb-shot">
+            <ThumbCanvas thumb={c.thumbnail} maxW={350} maxH={220} maxScale={2} />
+          </div>
+        )}
+        {c.links.map((l, i) => (
+          <LinkRow key={l.id} l={l} n={i + 2} openShot={openShot} setOpenShot={setOpenShot} onRemove={() => removeLink(l.id)} hostUrl={c.draft.url} />
+        ))}
+        <div className="sb-rule" />
+        <div className="sb-row sb-input">
+          <span className="sb-prompt" aria-hidden>
+            ❯
+          </span>
+          <textarea
+            ref={textRef}
+            className="sb-text"
+            placeholder={t("placeholder.request")}
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onInput={(e) => {
+              const t = e.currentTarget;
+              t.style.height = "auto";
+              t.style.height = `${Math.min(t.scrollHeight, 180)}px`;
+            }}
+          />
         </div>
-      )}
-      {c.links.map((l, i) => (
-        <LinkRow key={l.id} l={l} n={i + 2} openShot={openShot} setOpenShot={setOpenShot} onRemove={() => removeLink(l.id)} hostUrl={c.draft.url} />
-      ))}
-      <div className="sb-rule" />
-      <div className="sb-row sb-input">
-        <span className="sb-prompt" aria-hidden>
-          ❯
-        </span>
-        <textarea
-          ref={textRef}
-          className="sb-text"
-          placeholder={t("placeholder.request")}
-          rows={2}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onInput={(e) => {
-            const t = e.currentTarget;
-            t.style.height = "auto";
-            t.style.height = `${Math.min(t.scrollHeight, 180)}px`;
-          }}
-        />
-      </div>
-      <div className="sb-rule" />
-      <div className="sb-session">
-        {conn === "unpaired" ? (
-          <Pairing onDone={() => void reload()} />
-        ) : conn === "disconnected" ? (
-          <div className="sb-row" title="switchboard start">
-            <Mode />
-            <span className="tone-fail">{t("conn.lost")}</span>
-            <button type="button" className="sb-btn" onClick={() => void reload()}>
-              {t("retry")}
-            </button>
-          </div>
-        ) : conn === "loading" ? (
-          <div className="sb-row sb-muted">
-            <Mode />…
-          </div>
-        ) : sessions.length === 0 ? (
-          <div className="sb-row sb-muted">
-            <Mode />
-            {t("sessions.none")}
-          </div>
-        ) : (
-          <>
-            <button type="button" className="sb-current" aria-haspopup="listbox" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} title={altLabel("↓")}>
+        <div className="sb-rule" />
+        <div className="sb-session">
+          {conn === "unpaired" ? (
+            <Pairing onDone={() => void reload()} />
+          ) : conn === "disconnected" ? (
+            <div className="sb-row" title="switchboard start">
               <Mode />
-              {selected ? (
-                <>
-                  <span className="sb-sname">{selected.name}</span>
-                  <span className={`sb-status tone-${statusOf(selected).tone}`}>{statusOf(selected).label}</span>
-                  {surfaceTag(selected) && <span className="sb-surface">{surfaceTag(selected)}</span>}
-                  {tagsFor(selected).length > 0 && <span className="sb-meta">{tagsFor(selected).join(" · ")}</span>}
-                </>
-              ) : (
-                <span className="sb-muted">{c.captureId ? t("session") : "…"}</span>
+              <span className="tone-fail">{t("conn.lost")}</span>
+              <button type="button" className="sb-btn" onClick={() => void reload()}>
+                {t("retry")}
+              </button>
+            </div>
+          ) : conn === "loading" ? (
+            <div className="sb-row sb-muted">
+              <Mode />…
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="sb-row sb-muted">
+              <Mode />
+              {t("sessions.none")}
+            </div>
+          ) : (
+            <>
+              <button type="button" className="sb-current" aria-haspopup="listbox" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} title={altLabel("↓")}>
+                <Mode />
+                {selected ? (
+                  <>
+                    <span className="sb-sname">{selected.name}</span>
+                    <span className={`sb-status tone-${statusOf(selected).tone}`}>{statusOf(selected).label}</span>
+                    {surfaceTag(selected) && <span className="sb-surface">{surfaceTag(selected)}</span>}
+                    {tagsFor(selected).length > 0 && <span className="sb-meta">{tagsFor(selected).join(" · ")}</span>}
+                  </>
+                ) : (
+                  <span className="sb-muted">{c.captureId ? t("session") : "…"}</span>
+                )}
+                <span className="sb-chev">{listOpen ? "▴" : "▾"}</span>
+              </button>
+              {listOpen && (
+                <div className="sb-list" role="listbox">
+                  {sessions.length > 6 && <input className="sb-filter" placeholder={t("filter")} value={filter} onChange={(e) => setFilter(e.target.value)} />}
+                  {shownRecs.length > 0 && <div className="sb-group">{t("group.suggested")}</div>}
+                  {shownRecs.map((s) => (
+                    <SessionRow key={s.key} s={s} selected={s.key === selectedKey} index={recSessions.indexOf(s)} tags={tagsFor(s)} onPick={() => pick(s)} />
+                  ))}
+                  {shownRest.length > 0 && <div className="sb-group">{t("group.all")}</div>}
+                  {shownRest.map((s) => {
+                    const qi = recSessions.length ? -1 : quick.indexOf(s);
+                    return <SessionRow key={s.key} s={s} selected={s.key === selectedKey} index={qi >= 0 && qi < 3 ? qi : undefined} tags={tagsFor(s)} onPick={() => pick(s)} />;
+                  })}
+                </div>
               )}
-              <span className="sb-chev">{listOpen ? "▴" : "▾"}</span>
-            </button>
-            {listOpen && (
-              <div className="sb-list" role="listbox">
-                {sessions.length > 6 && <input className="sb-filter" placeholder={t("filter")} value={filter} onChange={(e) => setFilter(e.target.value)} />}
-                {shownRecs.length > 0 && <div className="sb-group">{t("group.suggested")}</div>}
-                {shownRecs.map((s) => (
-                  <SessionRow key={s.key} s={s} selected={s.key === selectedKey} index={recSessions.indexOf(s)} tags={tagsFor(s)} onPick={() => pick(s)} />
-                ))}
-                {shownRest.length > 0 && <div className="sb-group">{t("group.all")}</div>}
-                {shownRest.map((s) => {
-                  const qi = recSessions.length ? -1 : quick.indexOf(s);
-                  return <SessionRow key={s.key} s={s} selected={s.key === selectedKey} index={qi >= 0 && qi < 3 ? qi : undefined} tags={tagsFor(s)} onPick={() => pick(s)} />;
-                })}
-              </div>
-            )}
-          </>
+            </>
+          )}
+        </div>
+        {previewOpen && <pre className="sb-preview">{c.captureId ? preview || "…" : "…"}</pre>}
+        {linkOpen && (
+          <div className="sb-list sb-linklist" role="listbox">
+            <div className="sb-group">{t("linkInto.title")}</div>
+            {localOthers.map((p) => (
+              <button key={p.id} type="button" className="sb-srow" onClick={() => void linkInto(p.id, p.name, true)} disabled={!c.captureId || linksPending}>
+                <span className="sb-cursor" />
+                <span className="sb-sname">{p.name}</span>
+                <span className="sb-meta">{p.text ? p.text.split("\n")[0] : t("thisPage")}</span>
+              </button>
+            ))}
+            {remote.map((d) => (
+              <button key={d.id} type="button" className="sb-srow" onClick={() => void linkInto(d.id, d.name, false)} disabled={!c.captureId || linksPending} title={`${d.title}\n${d.url}`}>
+                <span className="sb-cursor" />
+                <span className="sb-sname">{d.name}</span>
+                <span className="sb-status tone-off">{pathOf(d.url)}</span>
+                <span className="sb-meta">{d.text ? d.text.split("\n")[0] : d.sameTab ? t("thisTab") : t("otherTab")}</span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
-      {previewOpen && <pre className="sb-preview">{c.captureId ? preview || "…" : "…"}</pre>}
-      {linkOpen && (
-        <div className="sb-list sb-linklist" role="listbox">
-          <div className="sb-group">{t("linkInto.title")}</div>
-          {localOthers.map((p) => (
-            <button key={p.id} type="button" className="sb-srow" onClick={() => void linkInto(p.id, p.name, true)} disabled={!c.captureId || linksPending}>
-              <span className="sb-cursor" />
-              <span className="sb-sname">{p.name}</span>
-              <span className="sb-meta">{p.text ? p.text.split("\n")[0] : t("thisPage")}</span>
-            </button>
-          ))}
-          {remote.map((d) => (
-            <button key={d.id} type="button" className="sb-srow" onClick={() => void linkInto(d.id, d.name, false)} disabled={!c.captureId || linksPending} title={`${d.title}\n${d.url}`}>
-              <span className="sb-cursor" />
-              <span className="sb-sname">{d.name}</span>
-              <span className="sb-status tone-off">{pathOf(d.url)}</span>
-              <span className="sb-meta">{d.text ? d.text.split("\n")[0] : d.sameTab ? t("thisTab") : t("otherTab")}</span>
-            </button>
-          ))}
-        </div>
-      )}
       <div className="sb-keys">
         <button type="button" className="sb-key" onClick={onAttach} title={t("key.add.title")}>
           <kbd>{altLabel("a")}</kbd> {t("key.add")}

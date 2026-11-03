@@ -200,6 +200,7 @@ export function boot(): void {
           key,
           mode: r.mode,
           rect: r.rect,
+          point: r.point,
           name,
           count: 1 + r.others.length,
           source: hints[0],

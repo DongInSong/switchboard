@@ -15,6 +15,8 @@ export type Composing = {
   key: string;
   mode: "element" | "region";
   rect: Rect;
+  /** 선택을 끝낸 포인터 위치. 영역 옆에 자리가 없으면 팝업을 여기에 붙인다(예전 초안에는 없다). */
+  point?: { x: number; y: number } | undefined;
   /** 머리줄 이름: 컴포넌트 > 선택자. */
   name: string;
   count: number;

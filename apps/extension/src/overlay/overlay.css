@@ -49,7 +49,7 @@
 @media (prefers-color-scheme: dark) {
   .sb-root { color-scheme: dark; }
 }
-.sb-list, .sb-preview, .sb-reply, .sb-text, .sb-out-text, .md-code, .md-table {
+.sb-list, .sb-preview, .sb-reply, .sb-text, .sb-out-text, .sb-body, .md-code, .md-table {
   scrollbar-width: thin;
   scrollbar-color: var(--sb-faint) transparent;
 }
@@ -103,6 +103,10 @@
   top: 0;
   width: 420px;
   max-width: calc(100vw - 16px);
+  /* 화면보다 길어지면 머리줄·단축키 줄은 두고 가운데(.sb-body)만 스크롤 */
+  max-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
   pointer-events: auto;
   background: var(--sb-bg);
   color: var(--sb-fg);
@@ -113,6 +117,8 @@
   overflow: hidden;
 }
 @keyframes sb-in { from { opacity: 0; translate: 0 4px; } }
+.sb-pop > .sb-head, .sb-pop > .sb-keys { flex: none; }
+.sb-body { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* 새로 선택하는 동안 열려 있는 팝업은 흐리게 */
 .sb-root.is-picking .sb-pop { opacity: 0.4; transition: opacity 120ms; }
 /* 연계 선택 중: 덧붙일 팝업만 또렷하게 */

@@ -1,7 +1,8 @@
 import type { Rect } from "@switchboard/protocol";
 import { normalizeRect, pickRegion, rectOf } from "./collect.ts";
 
-export type PickResult = { mode: "element" | "region"; rect: Rect; primary: Element; others: Element[] };
+/** point: 마지막 포인터 위치(드래그를 끝낸 점·클릭한 점). 영역 옆에 자리가 없을 때 팝업을 여기에 붙인다. */
+export type PickResult = { mode: "element" | "region"; rect: Rect; point: { x: number; y: number }; primary: Element; others: Element[] };
 
 /** 이름표: 컴포넌트(강조) · 선택자 · 파일:줄(흐리게). */
 export type LabelParts = { comp?: string | undefined; sel: string; src?: string | undefined };
@@ -170,7 +171,7 @@ export class Picker {
       this.#region.hidden = true;
       if (rect.width < 4 || rect.height < 4) return;
       const { primary, others } = pickRegion(rect, (x, y) => this.#elementAt(x, y));
-      this.#finish({ mode: "region", rect, primary, others });
+      this.#finish({ mode: "region", rect, point: { x: e.clientX, y: e.clientY }, primary, others });
       return;
     }
     const el = this.#hover ?? this.#elementAt(e.clientX, e.clientY);
@@ -180,7 +181,7 @@ export class Picker {
       return;
     }
     const list = this.#multi.includes(el) ? this.#multi : [...this.#multi, el];
-    this.#finishElements(list);
+    this.#finishElements(list, { x: e.clientX, y: e.clientY });
   };
 
   #onContextMenu = (e: MouseEvent) => {
@@ -226,7 +227,7 @@ export class Picker {
       if (next) this.#setHover(next);
     } else if (e.key === "Enter") {
       const list = this.#multi.length ? this.#multi : this.#hover ? [this.#hover] : [];
-      if (list.length) this.#finishElements(list);
+      if (list.length) this.#finishElements(list, this.#point);
     }
   };
 
@@ -244,7 +245,7 @@ export class Picker {
     this.#marks.push(mark);
   }
 
-  #finishElements(list: Element[]) {
+  #finishElements(list: Element[], point: { x: number; y: number }) {
     const [primary, ...others] = list;
     if (!primary) return;
     const rects = list.map(rectOf);
@@ -252,7 +253,7 @@ export class Picker {
     const y0 = Math.min(...rects.map((r) => r.y));
     const x1 = Math.max(...rects.map((r) => r.x + r.width));
     const y1 = Math.max(...rects.map((r) => r.y + r.height));
-    this.#finish({ mode: "element", rect: normalizeRect(x0, y0, x1, y1), primary, others });
+    this.#finish({ mode: "element", rect: normalizeRect(x0, y0, x1, y1), point, primary, others });
   }
 
   #finish(result: PickResult) {

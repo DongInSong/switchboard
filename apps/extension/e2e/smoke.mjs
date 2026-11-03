@@ -376,6 +376,41 @@ async function main() {
 
     await page.locator("switchboard-ui .sb-pop").getByRole("button", { name: "닫기", exact: true }).click();
 
+    // ---- 3b. 화면을 거의 다 덮는 영역: 옆에 자리가 없으면 드래그를 끝낸 점에 붙어 화면 안에 뜬다
+    {
+      const vp = await page.evaluate(() => ({ w: document.documentElement.clientWidth, h: document.documentElement.clientHeight }));
+      const end = { x: vp.w - 10, y: vp.h - 10 };
+      await startPick();
+      await page.mouse.move(10, 10);
+      await page.mouse.down();
+      await page.mouse.move(end.x, end.y, { steps: 8 });
+      await page.mouse.up();
+      const bigPop = page.locator("switchboard-ui .sb-pop");
+      await bigPop.waitFor();
+      await waitFor(async () => !(await bigPop.locator(".sb-send").isDisabled()), 10000).catch(() => null);
+      const inside = (b, v) => b && b.x >= 7 && b.y >= 7 && b.x + b.width <= v.w - 7 && b.y + b.height <= v.h - 7;
+      const box = await bigPop.boundingBox();
+      check(
+        "큰 영역: 팝업이 화면 안, 놓은 점 왼쪽 위",
+        inside(box, vp) && Math.abs(box.x + box.width - (end.x - 12)) <= 2 && Math.abs(box.y + box.height - (end.y - 12)) <= 2,
+        box && `${Math.round(box.x)},${Math.round(box.y)} ${Math.round(box.width)}×${Math.round(box.height)}`,
+      );
+      if (artifacts) await page.screenshot({ path: join(artifacts, "big-region.png") });
+      // 창이 낮아지면 팝업 높이를 화면에 맞추고 가운데만 스크롤
+      await page.setViewportSize({ width: 1280, height: 220 });
+      await bigPop.locator(".sb-text").press("Alt+p");
+      await bigPop.locator(".sb-preview").waitFor();
+      await waitFor(async () => ((await bigPop.locator(".sb-preview").textContent()) ?? "").length > 40, 5000).catch(() => null);
+      await page.waitForTimeout(150);
+      const vp2 = await page.evaluate(() => ({ w: document.documentElement.clientWidth, h: document.documentElement.clientHeight }));
+      const box2 = await bigPop.boundingBox();
+      const body = await bigPop.locator(".sb-body").evaluate((el) => ({ sh: el.scrollHeight, ch: el.clientHeight }));
+      if (artifacts) await page.screenshot({ path: join(artifacts, "short-window.png") });
+      check("낮은 창: 팝업이 화면 안 + 가운데 스크롤", inside(box2, vp2) && body.sh > body.ch && (await bigPop.locator(".sb-send").isVisible()), box2 && `${Math.round(box2.y)}+${Math.round(box2.height)} / ${vp2.h}, body ${body.ch}/${body.sh}`);
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await bigPop.getByRole("button", { name: "닫기", exact: true }).click();
+    }
+
     // ---- 4. 완료 로그에서 이어서: 앞 요청 번호 + 덧붙인 대상
     await chip2.click();
     const open5 = page.locator("switchboard-ui .sb-chip.is-open");
